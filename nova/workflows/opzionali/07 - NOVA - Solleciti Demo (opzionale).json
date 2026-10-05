@@ -1,0 +1,523 @@
+{
+  "name": "07 - NOVA - Solleciti Demo (opzionale)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 07 · Solleciti Demo (opzionale)\nLun-ven alle 15:30.\n\nPromemoria al giorno 3 e al giorno 7 a chi ha ricevuto la demo e non ha più scritto (chiavi `demo_sollecito_1` e `demo_sollecito_2` in TESTI).\nSe il lead ha risposto si ferma e ti avvisa: la palla passa a te.",
+        "width": 520,
+        "height": 240,
+        "color": 4
+      },
+      "id": "ebf80092-c1da-4e15-a970-c46f04e41acd",
+      "name": "Nota 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 15 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "3e984c2d-0cdf-487d-ab36-eea684568617",
+      "name": "Lun-ven alle 15:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== IMPOSTAZIONI — modifica solo i valori a destra =====\nreturn [\n  {\n    json: {\n      // ID del Google Sheet \"NOVA - Database\" (la parte dell'URL tra /d/ e /edit)\n      id_foglio: 'INCOLLA_QUI_ID_GOOGLE_SHEET',\n      // ID del workflow \"00 - NOVA - Gmail (caselle)\" (lo trovi nell'URL del workflow)\n      id_workflow_gmail: 'INCOLLA_QUI_ID_WORKFLOW_00',\n\n      // true = i promemoria vanno a email_test invece che al lead\n      modalita_test: true,\n      email_test: 'tua.email@esempio.it',\n\n      nome_mittente: 'Mario Rossi',\n      azienda: 'La Tua Azienda',\n      sito_azienda: 'www.tuaazienda.it',\n\n      // Giorni dall'invio della demo\n      giorno_sollecito_1: 3,\n      giorno_sollecito_2: 7,\n\n      // Dove ricevere l'avviso quando un lead risponde dopo la demo\n      email_avvisi: 'tua.email@esempio.it',\n      slot_avvisi: 1,\n    },\n  },\n];\n"
+      },
+      "id": "09c6b38b-1aaf-4c94-a72e-e49378adfbe2",
+      "name": "IMPOSTAZIONI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Modifica qui i tuoi dati",
+      "notesInFlow": true,
+      "color": 6
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "CASELLE"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "eb8a0db5-56a0-4141-a0fd-e826ede4a2a3",
+      "name": "Leggi CASELLE",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "REGISTRO"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "11eae500-ed52-434a-a6fa-0fbfeeb9e88b",
+      "name": "Leggi REGISTRO",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "TESTI"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "a3c84952-5e83-4ab2-a2fd-329b820c90a1",
+      "name": "Leggi TESTI",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "BLACKLIST"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "65057b2f-d5f9-4668-a67a-a65cf34a8838",
+      "name": "Leggi BLACKLIST",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Chi ha ricevuto la demo da 3 o 7 giorni e non ha ancora ricevuto il promemoria.\nconst testi = caricaTesti('Leggi TESTI');\ntesto(testi, 'demo_sollecito_1');\ntesto(testi, 'demo_sollecito_2');\nconst box = Object.fromEntries(caselle('Leggi CASELLE').map((c) => [c.email, c]));\nconst blacklist = caricaBlacklist('Leggi BLACKLIST');\nconst out = [];\n\nfor (const r of righe('Leggi REGISTRO', 'lead_id')) {\n  const stato = pulisci(r.stato).toUpperCase();\n  const giorni = giorniDa(r.data_demo);\n  if (giorni === null || !pulisci(r.thread_id)) continue;\n  let numero = 0;\n  if (stato === 'IN ATTESA' && giorni >= CFG.giorno_sollecito_1) numero = 1;\n  else if (stato === 'SOLLECITO 1' && giorni >= CFG.giorno_sollecito_2) numero = 2;\n  if (!numero || blacklist.contiene(r.email)) continue;\n  const casella = box[normEmail(r.casella)];\n  if (!casella) continue;\n  out.push({\n    json: {\n      azione: 'thread',\n      slot: casella.slot,\n      thread_id: pulisci(r.thread_id),\n      rif: pulisci(r.lead_id),\n      numero,\n      lead_id: pulisci(r.lead_id),\n      nome: pulisci(r.nome),\n      email: normEmail(r.email),\n      casella: casella.email,\n      nome_mittente: pulisci(casella.nome_mittente) || CFG.nome_mittente,\n      link_demo: pulisci(r.link_demo),\n      data_demo: leggiData(r.data_demo)?.toFormat('yyyy-MM-dd'),\n    },\n  });\n}\nreturn out;\n"
+      },
+      "id": "4338aa6c-36c6-4c1a-a0fb-74ebab3a1043",
+      "name": "Scegli",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_workflow_gmail }}"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "7e39d6a2-9df1-4f60-a917-94565df92684",
+      "name": "Leggi conversazione (00)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        0
+      ],
+      "notes": "Chiama il workflow 00 (Gmail)",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Se il lead ha scritto dopo la demo: si ferma e ti avvisa. Altrimenti manda il promemoria nella stessa conversazione.\nconst out = [];\nconst indirizzo = (s) => ((String(s).match(/[^<\\s\"]+@[^>\\s\"]+/) || [''])[0] || '').toLowerCase();\nconst testi = caricaTesti('Leggi TESTI');\n\nfor (const { json: t, pairedItem } of $input.all()) {\n  const l = $('Scegli').all()[pairedItem?.item ?? 0].json;\n  if (!t.ok) continue;\n  const messaggi = t.messaggi || [];\n  const inizioDemo = DateTime.fromISO(l.data_demo, { zone: $now.zoneName }).toMillis();\n  const risposta = messaggi.find((m) => indirizzo(m.da) !== l.casella && m.data_ms >= inizioDemo);\n  if (risposta) {\n    out.push({ json: { _dest: 'registro', lead_id: l.lead_id, stato: 'RISPOSTO' } });\n    out.push({\n      json: {\n        _dest: 'avviso',\n        azione: 'invia',\n        slot: CFG.slot_avvisi,\n        a: CFG.email_avvisi,\n        oggetto: `NOVA: ${l.nome} ha risposto dopo la demo`,\n        testo: `Ciao,\\n\\n${l.nome} <${l.email}> ha risposto dopo aver ricevuto la demo:\\n\\n\"${String(risposta.snippet).slice(0, 300)}\"\\n\\nI promemoria automatici per questo lead sono fermi: ora tocca a te.\\n\\nNOVA`,\n        rif: l.lead_id,\n      },\n    });\n    continue;\n  }\n\n  const ultimo = messaggi[messaggi.length - 1] || {};\n  const valori = { nome_attivita: l.nome, link_demo: l.link_demo, mittente: l.nome_mittente, azienda: CFG.azienda, sito_azienda: CFG.sito_azienda };\n  out.push({\n    json: {\n      _dest: 'invia',\n      numero: l.numero,\n      lead_id: l.lead_id,\n      azione: 'rispondi',\n      slot: t.slot,\n      da: l.casella,\n      nome_mittente: l.nome_mittente,\n      a: CFG.modalita_test ? CFG.email_test : l.email,\n      oggetto: `Re: ${String(ultimo.oggetto || 'la demo').replace(/^(re:\\s*)+/i, '')}`,\n      testo: riempi(testo(testi, `demo_sollecito_${l.numero}`), valori),\n      thread_id: l.thread_id,\n      in_reply_to: ultimo.message_id || '',\n      references: messaggi.map((m) => m.message_id).filter(Boolean).join(' '),\n      rif: l.lead_id,\n    },\n  });\n}\nreturn out;\n"
+      },
+      "id": "b1dd8421-c053-4c86-aacb-7de1ab59d5f6",
+      "name": "Prepara promemoria",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 3,
+        "output": "={{ ['invia','registro','avviso'].indexOf($json._dest) }}",
+        "options": {}
+      },
+      "id": "f38217cc-b1c6-48b8-a381-17286af7c5f6",
+      "name": "Smista",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_workflow_gmail }}"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "21886945-5646-4333-a6e7-59291105f310",
+      "name": "Invia promemoria (00)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        -150
+      ],
+      "notes": "Chiama il workflow 00 (Gmail)",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Segna nel REGISTRO il promemoria inviato.\nconst s = $('Prepara promemoria').item.json;\nconst r = $json;\nif (!r.ok) return { json: { lead_id: s.lead_id } };\nconst riga = { lead_id: s.lead_id, stato: `SOLLECITO ${s.numero}` };\nriga[`data_sollecito${s.numero}`] = oggi();\nreturn { json: riga };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "7217fa25-7098-4c4f-a442-82aa47745a0c",
+      "name": "Esito",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        -150
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "REGISTRO"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "b6419d0a-dca2-4254-adc8-6601c4fd402b",
+      "name": "Aggiorna REGISTRO (promemoria)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2640,
+        -150
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "REGISTRO"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "dcda130f-918b-4055-a004-bca501370703",
+      "name": "Aggiorna REGISTRO",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2200,
+        50
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_workflow_gmail }}"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "63dfeffe-23eb-4636-a519-84853c269bfb",
+      "name": "Avvisami (00)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        220
+      ],
+      "notes": "Chiama il workflow 00 (Gmail)",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "Lun-ven alle 15:30": {
+      "main": [
+        [
+          {
+            "node": "IMPOSTAZIONI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMPOSTAZIONI": {
+      "main": [
+        [
+          {
+            "node": "Leggi CASELLE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi CASELLE": {
+      "main": [
+        [
+          {
+            "node": "Leggi REGISTRO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi REGISTRO": {
+      "main": [
+        [
+          {
+            "node": "Leggi TESTI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi TESTI": {
+      "main": [
+        [
+          {
+            "node": "Leggi BLACKLIST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi BLACKLIST": {
+      "main": [
+        [
+          {
+            "node": "Scegli",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scegli": {
+      "main": [
+        [
+          {
+            "node": "Leggi conversazione (00)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi conversazione (00)": {
+      "main": [
+        [
+          {
+            "node": "Prepara promemoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara promemoria": {
+      "main": [
+        [
+          {
+            "node": "Smista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smista": {
+      "main": [
+        [
+          {
+            "node": "Invia promemoria (00)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aggiorna REGISTRO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avvisami (00)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invia promemoria (00)": {
+      "main": [
+        [
+          {
+            "node": "Esito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esito": {
+      "main": [
+        [
+          {
+            "node": "Aggiorna REGISTRO (promemoria)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Rome",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

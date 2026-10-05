@@ -1,0 +1,366 @@
+{
+  "name": "05 - NOVA - Email Warm-up",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 05 · Email Warm-up\nOgni 2 ore dalle 8 alle 20, sempre acceso.\n\nPer 14 giorni le caselle della scheda CASELLE si scambiano mail normali (da 5 a 40 al giorno per casella), le tirano fuori dallo spam, le aprono e rispondono ad alcune.\nAl giorno 15 la colonna `stato_warmup` diventa COMPLETATO: è il via libera per il workflow 02.\nDopo resta acceso a basso volume per mantenere la reputazione.\n\n**Attivalo per primo e non toccarlo per 14 giorni.**",
+        "width": 560,
+        "height": 300,
+        "color": 4
+      },
+      "id": "b0020ee5-6c72-4f61-a3b8-0973eb18c7d7",
+      "name": "Nota 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -440
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8-20/2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "a6f1333c-e8bc-41b3-a892-c5d31db9aa1b",
+      "name": "Ogni 2 ore 8-20",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== IMPOSTAZIONI — modifica solo i valori a destra =====\nreturn [\n  {\n    json: {\n      // ID del Google Sheet \"NOVA - Database\" (la parte dell'URL tra /d/ e /edit)\n      id_foglio: 'INCOLLA_QUI_ID_GOOGLE_SHEET',\n      // ID del workflow \"00 - NOVA - Gmail (caselle)\" (lo trovi nell'URL del workflow)\n      id_workflow_gmail: 'INCOLLA_QUI_ID_WORKFLOW_00',\n\n      // Durata del warm-up e volumi giornalieri per casella\n      giorni_warmup: 14,\n      volume_iniziale: 5, // mail al giorno il giorno 1\n      volume_finale: 40, // mail al giorno l'ultimo giorno di warm-up\n      volume_mantenimento: 10, // mail al giorno dopo il warm-up (per mantenere la reputazione)\n\n      // Fascia oraria in cui il warm-up lavora (deve combaciare con il trigger: ogni 2 ore dalle 8 alle 20)\n      ora_inizio: 8,\n      ora_fine: 20,\n\n      // Percentuale di mail di warm-up ricevute a cui rispondere\n      percentuale_risposte: 35,\n\n      // Parola in codice inserita nelle mail di warm-up (serve per riconoscerle). Uguale nel workflow 03!\n      tag_warmup: 'nvx7',\n    },\n  },\n];\n"
+      },
+      "id": "5052e6bf-d61d-40e4-a44d-8072d94c4644",
+      "name": "IMPOSTAZIONI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Modifica qui i tuoi dati",
+      "notesInFlow": true,
+      "color": 6
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "CASELLE"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "4f43e1f2-992f-497b-a037-d7b443b44a78",
+      "name": "Leggi CASELLE",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Decide quante mail di warm-up spedire ora da ogni casella e prepara il controllo spam/posta in arrivo.\nconst box = caselle('Leggi CASELLE');\nif (box.length < 2) {\n  throw new Error('Per il warm-up servono almeno 2 caselle attive nella scheda CASELLE (colonna attiva = SI).');\n}\n\n// Quante esecuzioni restano oggi (una ogni 2 ore tra ora_inizio e ora_fine)\nconst ora = $now.hour;\nlet esecuzioniRestanti;\nif (ora < CFG.ora_inizio) esecuzioniRestanti = Math.floor((CFG.ora_fine - CFG.ora_inizio) / 2) + 1;\nelse if (ora > CFG.ora_fine) esecuzioniRestanti = 1;\nelse esecuzioniRestanti = Math.floor((CFG.ora_fine - ora) / 2) + 1;\n\nconst OGGETTI = [\n  'Aggiornamento sulla settimana', 'Domanda veloce', 'Riunione di giovedì', 'Documenti per il progetto',\n  'Ci sentiamo domani?', 'Proposta di calendario', 'Grazie per ieri', 'Appunti della call',\n  'Preventivo da rivedere', 'Info sul fornitore', 'Programma del mese', 'Conferma appuntamento',\n  'Due righe sul progetto', 'Idee per la presentazione', 'Feedback sulla bozza', 'Pianificazione attività',\n  'Orari della prossima settimana', 'Report mensile', 'Nuovo contatto', 'Piccola novità',\n];\nconst APERTURE = ['Ciao,', 'Buongiorno,', 'Ciao!', 'Buon pomeriggio,', 'Salve,', 'Ciao, come va?'];\nconst CORPI = [\n  'ti scrivo per aggiornarti: abbiamo chiuso la prima parte del lavoro e la prossima settimana passiamo alla revisione.',\n  'volevo chiederti se hai avuto modo di guardare il documento che ti ho girato. Fammi sapere se ci sono modifiche.',\n  'ho sentito il fornitore e mi ha confermato le date. Ti mando i dettagli appena li ho tutti.',\n  'per la riunione di giovedì possiamo spostarci alle 11? Alle 10 ho già un altro impegno.',\n  'ti giro gli appunti della call di oggi, così abbiamo tutto in un posto solo.',\n  'ho dato un\\'occhiata alla bozza: nel complesso mi piace, ho solo un paio di osservazioni sulla parte finale.',\n  'la settimana prossima sono in ufficio da martedì a venerdì, dimmi tu quando ti torna comodo sentirci.',\n  'grazie ancora per la disponibilità di ieri, è stato utile confrontarci con calma.',\n  'ho preparato una prima versione del calendario del mese. Se vedi sovrapposizioni dimmelo pure.',\n  'ti confermo che il materiale è pronto. Se ti serve qualcos\\'altro sono qui.',\n  'stavo pensando a come organizzare meglio le attività di fine mese, magari ne parliamo a voce.',\n  'mi hanno chiesto un aggiornamento sui tempi: secondo te riusciamo a chiudere entro fine mese?',\n];\nconst CHIUSURE = ['A presto', 'Grazie', 'Buona giornata', 'Ciao', 'Un saluto', 'Ci sentiamo'];\n\nfunction generaMail(nome) {\n  const firma = nome ? `\\n${nome}` : '';\n  return {\n    oggetto: scegli(OGGETTI),\n    testo: `${scegli(APERTURE)}\\n\\n${scegli(CORPI)}\\n\\n${scegli(CHIUSURE)}${firma}\\n\\nRif. ${CFG.tag_warmup}`,\n  };\n}\n\nconst out = [];\nfor (const c of box) {\n  const nuovoInizio = !leggiData(c.inizio_warmup);\n  const giorno = nuovoInizio ? 1 : giorniDa(c.inizio_warmup) + 1;\n  const completato = giorno > CFG.giorni_warmup;\n  const quota = completato\n    ? CFG.volume_mantenimento\n    : Math.round(\n        CFG.volume_iniziale +\n          ((CFG.volume_finale - CFG.volume_iniziale) * (giorno - 1)) / Math.max(1, CFG.giorni_warmup - 1),\n      );\n  const dataConteggio = leggiData(c.data_conteggio);\n  const giaInviate = dataConteggio && dataConteggio.toFormat('yyyy-MM-dd') === oggi() ? parseInt(c.inviate_oggi, 10) || 0 : 0;\n  const restanti = Math.max(0, quota - giaInviate);\n  let adesso = Math.ceil(restanti / esecuzioniRestanti);\n  // Un po' di variabilità per non sembrare un robot\n  if (adesso > 1 && esecuzioniRestanti > 1 && Math.random() < 0.3) adesso += Math.random() < 0.5 ? -1 : 1;\n  adesso = Math.max(0, Math.min(adesso, restanti));\n\n  const altri = box.filter((x) => x.email !== c.email);\n  for (let i = 0; i < adesso; i++) {\n    const m = generaMail(pulisci(c.nome_mittente));\n    out.push({\n      json: {\n        _dest: 'gmail',\n        azione: 'invia',\n        slot: c.slot,\n        da: c.email,\n        nome_mittente: pulisci(c.nome_mittente),\n        a: scegli(altri).email,\n        oggetto: m.oggetto,\n        testo: m.testo,\n        rif: 'warmup',\n      },\n    });\n  }\n\n  // Recupera dallo spam le mail di warm-up e apri quelle arrivate\n  out.push({ json: { _dest: 'gmail', azione: 'cerca', slot: c.slot, query: `in:spam ${CFG.tag_warmup} newer_than:7d`, max: 25, rif: 'spam' } });\n  out.push({ json: { _dest: 'gmail', azione: 'cerca', slot: c.slot, query: `in:inbox is:unread ${CFG.tag_warmup} newer_than:3d`, max: 25, rif: 'inbox' } });\n\n  const riga = {\n    _dest: 'foglio',\n    email: c.email_foglio,\n    giorno_warmup: giorno,\n    stato_warmup: completato ? 'COMPLETATO' : 'IN CORSO',\n    inviate_oggi: giaInviate + adesso,\n    data_conteggio: oggi(),\n  };\n  if (nuovoInizio) riga.inizio_warmup = oggi();\n  out.push({ json: riga });\n}\nreturn out;\n"
+      },
+      "id": "54d2e68e-0fc3-47e5-a398-9587e1f91a80",
+      "name": "Pianifica warm-up",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ ['gmail','foglio'].indexOf($json._dest) }}",
+        "options": {}
+      },
+      "id": "0fe82f1a-f2d0-45d9-aff4-cef9a588ccd3",
+      "name": "Mail o foglio?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_workflow_gmail }}"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "80d72e0a-4b7d-4c9a-ab6f-32c33cc87b6f",
+      "name": "Invia e cerca (00)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        -100
+      ],
+      "notes": "Chiama il workflow 00 (Gmail)",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Dai risultati delle ricerche: togli dallo spam, segna come lette/importanti, scegli a quali rispondere.\nconst out = [];\nfor (const { json: r } of $input.all()) {\n  if (r.azione !== 'cerca' || !r.ok) continue;\n  for (const m of r.messaggi || []) {\n    if (r.rif === 'spam') {\n      out.push({ json: { azione: 'modifica', slot: r.slot, id_gmail: m.id_gmail, aggiungi_etichette: ['INBOX', 'IMPORTANT'], rimuovi_etichette: ['SPAM'], rif: 'spam' } });\n    } else if (r.rif === 'inbox') {\n      const aggiungi = ['IMPORTANT'];\n      if (Math.random() < 0.15) aggiungi.push('STARRED');\n      out.push({ json: { azione: 'modifica', slot: r.slot, id_gmail: m.id_gmail, aggiungi_etichette: aggiungi, rimuovi_etichette: ['UNREAD'], rif: 'letta' } });\n      if (Math.random() * 100 < CFG.percentuale_risposte) {\n        out.push({ json: { azione: 'leggi', slot: r.slot, id_gmail: m.id_gmail, rif: 'da_rispondere' } });\n      }\n    }\n  }\n}\nreturn out;\n"
+      },
+      "id": "2a0fd2e5-bce5-4f37-a4d6-fc481979942a",
+      "name": "Spam, lette, risposte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_workflow_gmail }}"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "bafd633d-7080-4af1-af9c-6f0a769bebb0",
+      "name": "Sistema e leggi (00)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        -100
+      ],
+      "notes": "Chiama il workflow 00 (Gmail)",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Risponde ad alcune mail di warm-up ricevute (massimo due livelli di \"Re:\").\nconst box = caselle('Leggi CASELLE');\nconst perSlot = Object.fromEntries(box.map((c) => [c.slot, c]));\nconst RISPOSTE = [\n  'Ciao, grazie per l\\'aggiornamento! Ci guardo e ti faccio sapere.',\n  'Perfetto, grazie. Per me va bene così.',\n  'Ricevuto, grazie mille. Ne parliamo nei prossimi giorni.',\n  'Grazie! Ottimo lavoro, ci sentiamo presto.',\n  'Ok, nessun problema. Teniamoci aggiornati.',\n  'Grazie per avermi scritto, ti rispondo con calma domani.',\n  'Benissimo, confermo. A presto!',\n];\n\nconst out = [];\nfor (const { json: r } of $input.all()) {\n  if (r.azione !== 'leggi' || !r.ok) continue;\n  const livelli = (String(r.oggetto).match(/\\bre:/gi) || []).length;\n  if (livelli >= 2) continue;\n  const casella = perSlot[r.slot];\n  const mittente = (String(r.da).match(/[^<\\s]+@[^>\\s]+/) || [''])[0].toLowerCase();\n  if (!casella || !mittente || mittente === casella.email) continue;\n  const firma = pulisci(casella.nome_mittente) ? `\\n${pulisci(casella.nome_mittente)}` : '';\n  out.push({\n    json: {\n      azione: 'rispondi',\n      slot: r.slot,\n      da: casella.email,\n      nome_mittente: pulisci(casella.nome_mittente),\n      a: mittente,\n      oggetto: /^re:/i.test(r.oggetto) ? r.oggetto : `Re: ${r.oggetto}`,\n      testo: `${scegli(RISPOSTE)}${firma}\\n\\nRif. ${CFG.tag_warmup}`,\n      thread_id: r.thread_id,\n      in_reply_to: r.message_id,\n      references: `${r.references || ''} ${r.message_id || ''}`.trim(),\n      rif: 'risposta_warmup',\n    },\n  });\n}\nreturn out;\n"
+      },
+      "id": "d2e34424-e9a3-4ab9-afbb-171a75ee2f47",
+      "name": "Prepara risposte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_workflow_gmail }}"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "14a6463f-6aae-4cac-abd2-1a69f16ca669",
+      "name": "Rispondi (00)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        -100
+      ],
+      "notes": "Chiama il workflow 00 (Gmail)",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "CASELLE"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "87508cd1-2c78-4945-a38b-d2b2132dee07",
+      "name": "Aggiorna CASELLE",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        150
+      ]
+    }
+  ],
+  "connections": {
+    "Ogni 2 ore 8-20": {
+      "main": [
+        [
+          {
+            "node": "IMPOSTAZIONI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMPOSTAZIONI": {
+      "main": [
+        [
+          {
+            "node": "Leggi CASELLE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi CASELLE": {
+      "main": [
+        [
+          {
+            "node": "Pianifica warm-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pianifica warm-up": {
+      "main": [
+        [
+          {
+            "node": "Mail o foglio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail o foglio?": {
+      "main": [
+        [
+          {
+            "node": "Invia e cerca (00)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aggiorna CASELLE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invia e cerca (00)": {
+      "main": [
+        [
+          {
+            "node": "Spam, lette, risposte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spam, lette, risposte": {
+      "main": [
+        [
+          {
+            "node": "Sistema e leggi (00)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sistema e leggi (00)": {
+      "main": [
+        [
+          {
+            "node": "Prepara risposte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara risposte": {
+      "main": [
+        [
+          {
+            "node": "Rispondi (00)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Rome",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

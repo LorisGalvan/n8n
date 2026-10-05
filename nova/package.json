@@ -1,0 +1,12 @@
+{
+  "name": "nova-workflows",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node src/build.mjs && python3 src/foglio.py",
+    "test": "node --test src/test/*.test.mjs"
+  },
+  "devDependencies": {
+    "luxon": "^3.5.0"
+  }
+}

@@ -1,0 +1,773 @@
+{
+  "name": "02 - NOVA - Cold Email",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 02 · Cold Email\nLun-ven, ogni ora dalle 9 alle 17.\n\n1. Prende i lead NUOVO dalla CODA e assegna una casella a turno (solo caselle con warm-up COMPLETATO).\n2. Apre il sito, Claude cerca uno dei problemi della scheda REGOLE e porta una citazione.\n3. Se la citazione si trova davvero nel sito → compone la mail con le frasi di TESTI e la spedisce.\n4. Se la prova non regge → il lead va in DA GUARDARE e non parte niente.\n\n**Parte in MODALITÀ TEST** (vedi IMPOSTAZIONI).\nCredenziali: Google Sheets + Anthropic (Header Auth: `x-api-key` = la tua chiave sk-ant-…).",
+        "width": 600,
+        "height": 360,
+        "color": 4
+      },
+      "id": "8661caae-14af-42bd-a99c-9beb6416d5c2",
+      "name": "Nota 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9-17 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "f53741e9-1d97-4e15-a03f-d90be969cdad",
+      "name": "Lun-ven ogni ora 9-17",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== IMPOSTAZIONI — modifica solo i valori a destra =====\nreturn [\n  {\n    json: {\n      // ID del Google Sheet \"NOVA - Database\" (la parte dell'URL tra /d/ e /edit)\n      id_foglio: 'INCOLLA_QUI_ID_GOOGLE_SHEET',\n      // ID del workflow \"00 - NOVA - Gmail (caselle)\" (lo trovi nell'URL del workflow)\n      id_workflow_gmail: 'INCOLLA_QUI_ID_WORKFLOW_00',\n\n      // MODALITÀ TEST: true = tutte le mail vanno a email_test (non ai lead) e il lead viene segnato \"TEST\".\n      // Metti false solo quando REGOLE e TESTI sono pronti e il warm-up è finito.\n      modalita_test: true,\n      email_test: 'tua.email@esempio.it',\n\n      // Chi firma le mail (se nella scheda CASELLE c'è nome_mittente, vince quello)\n      nome_mittente: 'Mario Rossi',\n      azienda: 'La Tua Azienda',\n      sito_azienda: 'www.tuaazienda.it',\n\n      // Volumi\n      limite_giornaliero_default: 20, // mail a freddo al giorno per casella (se in CASELLE manca limite_cold_giorno)\n      lead_per_esecuzione: 8, // lead analizzati al massimo a ogni giro (il workflow gira ogni ora 9-17)\n      ora_ultimo_giro: 17,\n      pausa_min_secondi: 40, // pausa casuale tra un invio e l'altro\n      pausa_max_secondi: 120,\n\n      // Analisi del sito con Claude\n      modello: 'claude-opus-5-5',\n      effort: 'medium',\n      confidenza_minima: 0.7, // sotto questa soglia la prova non regge e il lead va in DA GUARDARE\n      caratteri_massimi_pagina: 15000,\n    },\n  },\n];\n"
+      },
+      "id": "aeca02b7-a248-4d55-a183-c5ce61bb3f4c",
+      "name": "IMPOSTAZIONI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Modifica qui i tuoi dati",
+      "notesInFlow": true,
+      "color": 6
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "CASELLE"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "9e3a12d8-09a4-46f0-aff4-179868a1615a",
+      "name": "Leggi CASELLE",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "CODA"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "6204245a-d1a7-4eb5-a062-03ced02131bf",
+      "name": "Leggi CODA",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "REGOLE"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "bc1e362b-b687-4aea-ae7f-cd2f050dd0d4",
+      "name": "Leggi REGOLE",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "TESTI"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "f093dc4c-0c5f-4fa0-a13f-35e8c38298ae",
+      "name": "Leggi TESTI",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "BLACKLIST"
+        },
+        "filtersUI": {},
+        "options": {}
+      },
+      "id": "79e6916f-8cb9-4684-aa19-f66be10be664",
+      "name": "Leggi BLACKLIST",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1320,
+        0
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Sceglie quali lead lavorare in questo giro e da quale casella scrivere (a turno).\nconst tutte = caselle('Leggi CASELLE').filter((c) => c.ruolo === 'INVIO');\nlet pronte = tutte.filter((c) => c.pronta);\nif (!pronte.length && CFG.modalita_test) pronte = tutte; // in test si può provare anche durante il warm-up\nif (!pronte.length) return []; // warm-up non ancora finito: non parte niente\n\n// Regole e testi devono esserci, altrimenti il workflow si ferma\nconst regoleAttive = righe('Leggi REGOLE', 'id').filter((r) => si(r.attiva));\nif (!regoleAttive.length) throw new Error('Nella scheda REGOLE non c\\'è nessuna regola con attiva = SI.');\nconst testi = caricaTesti('Leggi TESTI');\nfor (const k of ['oggetto', 'saluto', 'proposta', 'chiusura', 'firma']) testo(testi, k);\n\nconst coda = righe('Leggi CODA', 'lead_id');\nconst blacklist = caricaBlacklist('Leggi BLACKLIST');\n\n// Invii già fatti oggi per casella\nconst inviateOggi = {};\nfor (const r of coda) {\n  if (leggiData(r.data_invio)?.toFormat('yyyy-MM-dd') === oggi()) {\n    const k = normEmail(r.casella);\n    inviateOggi[k] = (inviateOggi[k] || 0) + 1;\n  }\n}\n\n// Capacità di questo giro: quota rimasta divisa per i giri rimasti oggi\nconst giriRestanti = Math.max(1, CFG.ora_ultimo_giro - $now.hour + 1);\nconst capacita = pronte.map((c) => {\n  const limite = parseInt(c.limite_cold_giorno, 10) || CFG.limite_giornaliero_default;\n  const restanti = Math.max(0, limite - (inviateOggi[c.email] || 0));\n  return { casella: c, posti: Math.ceil(restanti / giriRestanti) };\n});\n\n// Email già contattate (in qualunque riga non NUOVO)\nconst contattate = new Set(\n  coda.filter((r) => pulisci(r.stato).toUpperCase() !== 'NUOVO').map((r) => normEmail(r.email)),\n);\nconst candidati = coda\n  .filter((r) => pulisci(r.stato).toUpperCase() === 'NUOVO' && pulisci(r.email) && pulisci(r.sito))\n  .filter((r) => !blacklist.contiene(r.email) && !contattate.has(normEmail(r.email)));\n\nconst out = [];\nlet giro = 0;\nfor (const lead of candidati) {\n  if (out.length >= CFG.lead_per_esecuzione) break;\n  if (contattate.has(normEmail(lead.email))) continue; // stessa email già scelta in questo giro\n  // prossima casella con posti liberi, a turno\n  let scelta = null;\n  for (let t = 0; t < capacita.length; t++) {\n    const c = capacita[(giro + t) % capacita.length];\n    if (c.posti > 0) {\n      scelta = c;\n      giro = (giro + t + 1) % capacita.length;\n      break;\n    }\n  }\n  if (!scelta) break;\n  scelta.posti--;\n  contattate.add(normEmail(lead.email));\n  out.push({\n    json: {\n      lead_id: pulisci(lead.lead_id),\n      nome: pulisci(lead.nome),\n      categoria: pulisci(lead.categoria),\n      citta: pulisci(lead.citta),\n      sito: pulisci(lead.sito),\n      email: normEmail(lead.email),\n      slot: scelta.casella.slot,\n      casella: scelta.casella.email,\n      nome_mittente: pulisci(scelta.casella.nome_mittente) || CFG.nome_mittente,\n    },\n  });\n}\nreturn out;\n"
+      },
+      "id": "9405b4a4-1d0f-4b82-aecb-9a945621f2e7",
+      "name": "Pianifica invii",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "3eb0ac33-199d-4292-a30c-3a3163d99ca2",
+      "name": "Uno alla volta",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.sito }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "cef07656-0409-4ca7-ae06-0b3cf15afe5e",
+      "name": "Scarica sito",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Estrae dal sito i segnali tecnici e il testo, e prepara la richiesta per Claude.\nconst lead = $('Uno alla volta').item.json;\nconst res = $json;\nconst stato = Number(res.statusCode || 0);\nconst html = typeof res.body === 'string' ? res.body : '';\n\nif (!(stato >= 200 && stato < 400) || html.length < 200) {\n  return { json: { ...lead, sito_ok: false, motivo: `Sito non raggiungibile (${stato || res.error?.message || 'errore di rete'})` } };\n}\n\nconst decodifica = (s) =>\n  String(s || '')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&quot;/g, '\"')\n    .replace(/&#39;|&apos;/g, \"'\")\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&#(\\d+);/g, (m, n) => String.fromCharCode(+n));\nconst primo = (re) => decodifica((html.match(re) || [])[1] || '').replace(/\\s+/g, ' ').trim();\nconst tutti = (re) => [...html.matchAll(re)].map((m) => decodifica(m[1]).replace(/<[^>]+>/g, '').replace(/\\s+/g, ' ').trim()).filter(Boolean);\nconst presente = (re) => (re.test(html) ? 'sì' : 'no');\n\nconst titolo = primo(/<title[^>]*>([\\s\\S]*?)<\\/title>/i);\nconst metaDescr = primo(/<meta[^>]+name=[\"']description[\"'][^>]+content=[\"']([^\"']*)[\"']/i) ||\n  primo(/<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+name=[\"']description[\"']/i);\nconst anni = [...new Set((html.match(/(?:©|&copy;|copyright)\\s*(?:\\d{4}\\s*[-–]\\s*)?(\\d{4})/gi) || []).map((s) => s.match(/(\\d{4})(?!.*\\d{4})/)[1]))];\nconst generatore = primo(/<meta[^>]+name=[\"']generator[\"'][^>]+content=[\"']([^\"']*)[\"']/i);\n\nconst testoPagina = decodifica(\n  html\n    .replace(/<(script|style|noscript|svg)[\\s\\S]*?<\\/\\1>/gi, ' ')\n    .replace(/<!--[\\s\\S]*?-->/g, ' ')\n    .replace(/<br\\s*\\/?>|<\\/(p|div|li|h[1-6]|tr|section|article)>/gi, '\\n')\n    .replace(/<[^>]+>/g, ' '),\n)\n  .replace(/[ \\t]+/g, ' ')\n  .replace(/\\n\\s*\\n+/g, '\\n')\n  .trim()\n  .slice(0, CFG.caratteri_massimi_pagina);\n\nconst segnali = [\n  `url: ${lead.sito}`,\n  `https: ${/^https:/i.test(lead.sito) ? 'sì' : 'no'}`,\n  `title: ${titolo || '(assente)'}`,\n  `meta_description: ${metaDescr || '(assente)'}`,\n  `meta_viewport_mobile: ${presente(/<meta[^>]+name=[\"']viewport[\"']/i)}`,\n  `h1: ${tutti(/<h1[^>]*>([\\s\\S]*?)<\\/h1>/gi).slice(0, 5).join(' | ') || '(assente)'}`,\n  `h2: ${tutti(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/gi).slice(0, 8).join(' | ') || '(assente)'}`,\n  `anni_copyright: ${anni.join(', ') || '(nessuno)'}`,\n  `generatore: ${generatore || '(non indicato)'}`,\n  `modulo_contatto: ${presente(/<form[\\s>]/i)}`,\n  `link_telefono: ${presente(/href=[\"']tel:/i)}`,\n  `link_email: ${presente(/href=[\"']mailto:/i)}`,\n  `whatsapp: ${presente(/wa\\.me|api\\.whatsapp|whatsapp/i)}`,\n  `prenotazione_online: ${presente(/prenot|booking|book now|reserv|thefork|quandoo|calendly/i)}`,\n  `facebook: ${presente(/facebook\\.com\\//i)}`,\n  `instagram: ${presente(/instagram\\.com\\//i)}`,\n  `google_analytics_o_tag_manager: ${presente(/gtag\\(|googletagmanager|google-analytics|ga\\(/i)}`,\n  `pixel_meta: ${presente(/fbq\\(|connect\\.facebook\\.net/i)}`,\n  `banner_cookie: ${presente(/cookie(bot|yes|law|-law|consent|_notice|banner)|iubenda|cookiebot|complianz/i)}`,\n  `privacy_policy: ${presente(/privacy/i)}`,\n  `dimensione_html_kb: ${Math.round(html.length / 1024)}`,\n].join('\\n');\n\nconst documento = `SEGNALI TECNICI\\n${segnali}\\n\\nTESTO DELLA PAGINA\\n${testoPagina}`;\n\nconst regole = righe('Leggi REGOLE', 'id')\n  .filter((r) => si(r.attiva))\n  .sort((a, b) => (parseInt(a.priorita, 10) || 99) - (parseInt(b.priorita, 10) || 99))\n  .map((r) => `- id: ${pulisci(r.id)}\\n  problema: ${pulisci(r.problema)}\\n  cosa cercare: ${pulisci(r.cosa_cercare)}\\n  prova richiesta: ${pulisci(r.prova_richiesta)}`)\n  .join('\\n');\n\nconst sistema = `Sei un analista che controlla il sito web di un'attività locale italiana per conto di ${CFG.azienda}.\nTi viene dato il contenuto della home page (segnali tecnici estratti dal codice + testo visibile) e un elenco di REGOLE: ogni regola descrive un problema che ${CFG.azienda} sa risolvere.\n\nData di oggi: ${oggi()}.\n\nIl tuo compito: capire se UNA delle regole si applica a questo sito e dimostrarlo con una prova.\n\nRegole di lavoro:\n- Scegli al massimo una regola: quella più evidente; a parità di evidenza, quella che compare prima nell'elenco.\n- La \"citazione\" deve essere copiata PAROLA PER PAROLA dal documento che ricevi (dai SEGNALI TECNICI o dal TESTO DELLA PAGINA), massimo 200 caratteri, senza aggiungere né correggere nulla. Per i problemi di assenza cita la riga del segnale tecnico (es. \"meta_description: (assente)\").\n- Non inventare nulla e non dedurre cose che il documento non mostra. Se nessuna regola è dimostrabile, rispondi trovato = false.\n- \"prova\" è una frase breve in italiano (massimo 25 parole), cortese e neutra, che descrive al titolare cosa hai notato sul suo sito. Verrà inserita nella mail: non usare toni allarmistici, non citare dati tecnici incomprensibili.\n- \"confidenza\" è un numero tra 0 e 1 su quanto la prova è solida.\n\nREGOLE\n${regole}`;\n\nconst schema = {\n  type: 'object',\n  properties: {\n    trovato: { type: 'boolean' },\n    regola_id: { type: 'string' },\n    citazione: { type: 'string' },\n    prova: { type: 'string' },\n    confidenza: { type: 'number' },\n    nota: { type: 'string' },\n  },\n  required: ['trovato', 'regola_id', 'citazione', 'prova', 'confidenza', 'nota'],\n  additionalProperties: false,\n};\n\nconst richiesta_claude = {\n  model: CFG.modello,\n  max_tokens: 8000,\n  fallbacks: 'default',\n  output_config: { effort: CFG.effort, format: { type: 'json_schema', schema } },\n  system: sistema,\n  messages: [\n    {\n      role: 'user',\n      content: `Attività: ${lead.nome} (${lead.categoria}, ${lead.citta})\\n\\n<documento>\\n${documento}\\n</documento>`,\n    },\n  ],\n};\n\nreturn { json: { ...lead, sito_ok: true, documento, richiesta_claude } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "688b60c2-6e0a-4cfb-a7b3-dee6533cb19f",
+      "name": "Prepara analisi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json.sito_ok ? 0 : 1 }}",
+        "options": {}
+      },
+      "id": "5f398bf1-ae83-4666-a25d-768202cb74aa",
+      "name": "Sito raggiungibile?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2420,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "anthropic-beta",
+              "value": "server-side-fallback-2026-07-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.richiesta_claude) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "a64c64e2-b494-4e07-a3a4-309c7904aa6d",
+      "name": "Claude: cerca il problema",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Controlla che la prova di Claude regga davvero: regola attiva, confidenza sufficiente,\n// citazione presente parola per parola nel sito. Se non regge, il lead va in DA GUARDARE.\nconst ctx = $('Prepara analisi').item.json;\nconst res = $json;\nconst { documento, richiesta_claude, ...lead } = ctx;\nconst scarta = (motivo, extra = {}) => ({ json: { ...lead, valida: false, motivo, ...extra } });\n\nif (res.error) return scarta(`Errore Claude: ${res.error.message || JSON.stringify(res.error).slice(0, 200)}`);\nconst body = res;\nif (body.stop_reason === 'refusal') return scarta('Claude ha rifiutato l\\'analisi');\nif (body.stop_reason === 'max_tokens') return scarta('Risposta di Claude troncata');\n\nconst blocco = (body.content || []).find((b) => b.type === 'text');\nlet esito;\ntry {\n  esito = JSON.parse(blocco?.text || '');\n} catch (e) {\n  return scarta('Risposta di Claude non leggibile');\n}\n\nif (!esito.trovato) return scarta(`Nessun problema dimostrabile${esito.nota ? `: ${esito.nota}` : ''}`);\n\nconst regola = righe('Leggi REGOLE', 'id').find((r) => pulisci(r.id) === pulisci(esito.regola_id) && si(r.attiva));\nif (!regola) return scarta(`Regola inesistente o non attiva: ${esito.regola_id}`);\n\nconst extra = { regola_id: pulisci(regola.id), prova: `${esito.prova} [citazione: \"${esito.citazione}\"]` };\nif (!(Number(esito.confidenza) >= CFG.confidenza_minima)) {\n  return scarta(`Prova debole (confidenza ${esito.confidenza})`, extra);\n}\n\nconst norm = (s) => String(s || '').toLowerCase().replace(/[“”«»\"']/g, '').replace(/\\s+/g, ' ').trim();\nconst citazione = norm(esito.citazione);\nif (citazione.length < 8 || !norm(documento).includes(citazione)) {\n  return scarta('La citazione non si trova nel sito: prova non verificata', extra);\n}\n\nreturn {\n  json: {\n    ...lead,\n    ...extra,\n    valida: true,\n    prova_testo: esito.prova.trim(),\n    citazione: esito.citazione,\n    frase_email: pulisci(regola.frase_email),\n    problema: pulisci(regola.problema),\n  },\n};\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "3b6136e0-0ef6-4678-afaf-7585e1460efe",
+      "name": "Verifica prova",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json.valida ? 0 : 1 }}",
+        "options": {}
+      },
+      "id": "7a4acb79-533a-4db7-a6dd-1b26e7f20b38",
+      "name": "La prova regge?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Compone la mail con le frasi della scheda TESTI e la frase della regola trovata.\nconst l = $json;\nconst testi = caricaTesti('Leggi TESTI');\nconst valori = {\n  nome_attivita: l.nome,\n  categoria: l.categoria,\n  citta: l.citta,\n  sito: l.sito.replace(/^https?:\\/\\//i, '').replace(/\\/$/, ''),\n  problema: l.problema,\n  prova: l.prova_testo,\n  mittente: l.nome_mittente,\n  azienda: CFG.azienda,\n  sito_azienda: CFG.sito_azienda,\n};\nvalori.frase_problema = riempi(l.frase_email || '{prova}', valori);\n\nconst parti = [\n  testo(testi, 'saluto'),\n  testo(testi, 'apertura', false),\n  '{frase_problema}',\n  testo(testi, 'proposta'),\n  testo(testi, 'chiusura'),\n  testo(testi, 'firma'),\n  testo(testi, 'opt_out', false),\n].filter(Boolean);\n\nconst corpo = riempi(parti.join('\\n\\n'), valori);\nconst oggetto = riempi(testo(testi, 'oggetto'), valori);\n\nreturn {\n  json: {\n    ...l,\n    oggetto,\n    testo: corpo,\n    // dati per il workflow 00\n    azione: 'invia',\n    da: l.casella,\n    a: CFG.modalita_test ? CFG.email_test : l.email,\n    list_unsubscribe: l.casella,\n    rif: l.lead_id,\n  },\n};\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "dd84ae51-8c5e-4e9f-a321-c8f4752fcf82",
+      "name": "Componi email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_workflow_gmail }}"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "fe37a57d-42de-4506-a315-97163e4a9b1c",
+      "name": "Invia (00)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        3520,
+        -100
+      ],
+      "notes": "Chiama il workflow 00 (Gmail)",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// Aggiorna la riga del lead nella CODA con l'esito dell'invio.\nconst l = $('Componi email').item.json;\nconst r = $json;\nif (!r.ok) {\n  return { json: { lead_id: l.lead_id, stato: 'ERRORE INVIO', motivo: r.errore, casella: l.casella } };\n}\nreturn {\n  json: {\n    lead_id: l.lead_id,\n    stato: CFG.modalita_test ? 'TEST' : 'INVIATA',\n    regola_id: l.regola_id,\n    prova: l.prova,\n    motivo: '',\n    casella: l.casella,\n    oggetto: l.oggetto,\n    thread_id: r.thread_id,\n    message_id: r.message_id,\n    data_invio: oggi(),\n  },\n};\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "4f6fa8b5-d143-40b4-aa36-ae574a749cab",
+      "name": "Esito invio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "CODA"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "097b18b9-c0f3-492d-a1ba-1e70ff151f7e",
+      "name": "Aggiorna CODA (inviata)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3960,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor($('IMPOSTAZIONI').first().json.pausa_min_secondi + Math.random() * ($('IMPOSTAZIONI').first().json.pausa_max_secondi - $('IMPOSTAZIONI').first().json.pausa_min_secondi + 1)) }}",
+        "unit": "seconds"
+      },
+      "id": "c3d14937-b6b0-4012-a326-7970823eab9a",
+      "name": "Pausa",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4180,
+        -100
+      ],
+      "webhookId": "bb528031-79a8-4e89-aba5-6b7d95e0a258"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Funzioni comuni NOVA (incluse automaticamente in ogni nodo Code) ----\nconst CFG = $('IMPOSTAZIONI').first().json;\n\n// Righe lette da un nodo Google Sheets (scarta le righe vuote)\nfunction righe(nodo, colonnaChiave) {\n  return $(nodo)\n    .all()\n    .map((i) => i.json)\n    .filter((r) => r && String(r[colonnaChiave] ?? '').trim() !== '');\n}\n\nfunction si(v) {\n  return ['si', 'sì', 'yes', 'y', 'true', '1', 'x', 'ok'].includes(String(v ?? '').trim().toLowerCase());\n}\n\nfunction pulisci(v) {\n  return String(v ?? '').trim();\n}\n\nfunction normEmail(v) {\n  return pulisci(v).toLowerCase();\n}\n\nfunction dominio(email) {\n  return normEmail(email).split('@')[1] || '';\n}\n\n// Data di oggi nel fuso del workflow (YYYY-MM-DD)\nfunction oggi() {\n  return $now.toFormat('yyyy-MM-dd');\n}\n\n// Interpreta le date scritte nel foglio: 2026-10-05, 05/10/2026, numero seriale di Sheets\nfunction leggiData(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number') {\n    return DateTime.fromISO('1899-12-30', { zone: $now.zoneName }).plus({ days: Math.floor(v) }).startOf('day');\n  }\n  const s = String(v).trim();\n  let m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] }, { zone: $now.zoneName });\n  m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})/);\n  if (m) return DateTime.fromObject({ year: +m[3], month: +m[2], day: +m[1] }, { zone: $now.zoneName });\n  return null;\n}\n\n// Giorni interi trascorsi da una data del foglio (null se la data manca)\nfunction giorniDa(v) {\n  const d = leggiData(v);\n  if (!d) return null;\n  return Math.floor($now.startOf('day').diff(d.startOf('day'), 'days').days);\n}\n\nfunction scegli(lista) {\n  return lista[Math.floor(Math.random() * lista.length)];\n}\n\n// Sostituisce {segnaposto} nel testo\nfunction riempi(testo, valori) {\n  return String(testo ?? '').replace(/\\{([a-z_]+)\\}/gi, (tutto, k) =>\n    valori[k] !== undefined && valori[k] !== null ? String(valori[k]) : tutto,\n  );\n}\n\n// Testi dalla scheda TESTI: { chiave: [varianti...] }\nfunction caricaTesti(nodo) {\n  const testi = {};\n  for (const r of righe(nodo, 'chiave')) {\n    const k = pulisci(r.chiave).toLowerCase();\n    const t = String(r.testo ?? '').replace(/\\\\n/g, '\\n').trim();\n    if (!t) continue;\n    (testi[k] = testi[k] || []).push(t);\n  }\n  return testi;\n}\n\nfunction testo(testi, chiave, obbligatorio = true) {\n  const v = testi[chiave];\n  if (!v || !v.length) {\n    if (obbligatorio) {\n      throw new Error(`Nella scheda TESTI manca la chiave \"${chiave}\". Aggiungila prima di attivare il workflow.`);\n    }\n    return '';\n  }\n  return scegli(v);\n}\n\n// Caselle collegate nel workflow 00 (scheda CASELLE)\nfunction caselle(nodo) {\n  return righe(nodo, 'email')\n    .filter((c) => si(c.attiva))\n    .map((c) => ({\n      ...c,\n      email_foglio: pulisci(c.email),\n      slot: parseInt(c.slot, 10),\n      email: normEmail(c.email),\n      ruolo: pulisci(c.ruolo).toUpperCase() || 'INVIO',\n      pronta: pulisci(c.stato_warmup).toUpperCase() === 'COMPLETATO',\n    }))\n    .filter((c) => c.slot >= 1 && c.slot <= 10);\n}\n\n// Elenco opt-out / bounce (scheda BLACKLIST)\nfunction caricaBlacklist(nodo) {\n  const email = new Set();\n  const domini = new Set();\n  for (const r of $(nodo).all().map((i) => i.json)) {\n    if (pulisci(r.email)) email.add(normEmail(r.email));\n    if (pulisci(r.dominio)) domini.add(pulisci(r.dominio).toLowerCase());\n  }\n  return { email, domini, contiene: (e) => email.has(normEmail(e)) || domini.has(dominio(e)) };\n}\n\n// ---- Logica del nodo ----\n// La prova non regge (o il sito non si apre): non parte niente, il lead va controllato a mano.\nconst l = $json;\nreturn {\n  json: {\n    lead_id: l.lead_id,\n    stato: 'DA GUARDARE',\n    motivo: l.motivo || 'Prova non verificata',\n    regola_id: l.regola_id || '',\n    prova: l.prova || '',\n  },\n};\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "7c1c236c-8467-4386-a8b0-3b763ab91f06",
+      "name": "Segna DA GUARDARE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('IMPOSTAZIONI').first().json.id_foglio }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "CODA"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "5ff715ab-5b6e-406a-ae06-230ceda8b9d9",
+      "name": "Aggiorna CODA (da guardare)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3520,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Lun-ven ogni ora 9-17": {
+      "main": [
+        [
+          {
+            "node": "IMPOSTAZIONI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMPOSTAZIONI": {
+      "main": [
+        [
+          {
+            "node": "Leggi CASELLE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi CASELLE": {
+      "main": [
+        [
+          {
+            "node": "Leggi CODA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi CODA": {
+      "main": [
+        [
+          {
+            "node": "Leggi REGOLE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi REGOLE": {
+      "main": [
+        [
+          {
+            "node": "Leggi TESTI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi TESTI": {
+      "main": [
+        [
+          {
+            "node": "Leggi BLACKLIST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi BLACKLIST": {
+      "main": [
+        [
+          {
+            "node": "Pianifica invii",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pianifica invii": {
+      "main": [
+        [
+          {
+            "node": "Uno alla volta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uno alla volta": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Scarica sito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scarica sito": {
+      "main": [
+        [
+          {
+            "node": "Prepara analisi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara analisi": {
+      "main": [
+        [
+          {
+            "node": "Sito raggiungibile?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sito raggiungibile?": {
+      "main": [
+        [
+          {
+            "node": "Claude: cerca il problema",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Segna DA GUARDARE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: cerca il problema": {
+      "main": [
+        [
+          {
+            "node": "Verifica prova",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica prova": {
+      "main": [
+        [
+          {
+            "node": "La prova regge?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "La prova regge?": {
+      "main": [
+        [
+          {
+            "node": "Componi email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Segna DA GUARDARE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Componi email": {
+      "main": [
+        [
+          {
+            "node": "Invia (00)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invia (00)": {
+      "main": [
+        [
+          {
+            "node": "Esito invio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esito invio": {
+      "main": [
+        [
+          {
+            "node": "Aggiorna CODA (inviata)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggiorna CODA (inviata)": {
+      "main": [
+        [
+          {
+            "node": "Pausa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pausa": {
+      "main": [
+        [
+          {
+            "node": "Uno alla volta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Segna DA GUARDARE": {
+      "main": [
+        [
+          {
+            "node": "Aggiorna CODA (da guardare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggiorna CODA (da guardare)": {
+      "main": [
+        [
+          {
+            "node": "Uno alla volta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Rome",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

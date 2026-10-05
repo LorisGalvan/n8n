@@ -1,0 +1,616 @@
+{
+  "name": "00 - NOVA - Gmail (caselle)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 00 · Gmail (caselle)\nIl centralino: tutte le mail di NOVA passano da qui.\n\n**Unico punto in cui colleghi Gmail.**\nApri i nodi \"Casella 1…10\" e scegli la credenziale Gmail (OAuth2) della casella giusta. Lo slot deve corrispondere alla colonna `slot` della scheda CASELLE.\n\nLe caselle che non usi possono restare senza credenziale.\n\nNon va attivato: lo chiamano gli altri workflow.",
+        "width": 520,
+        "height": 300,
+        "color": 4
+      },
+      "id": "dc3469ce-3a21-43c3-a44d-9601dc1415cb",
+      "name": "Nota 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -420
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "0653e950-343a-40fa-ac0d-002c989a1494",
+      "name": "Chiamato dagli altri workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Trasforma la richiesta degli altri workflow in una chiamata alle API Gmail.\n// Campi in ingresso:\n//   azione: invia | rispondi | cerca | leggi | thread | modifica\n//   slot: 1-10 (la casella da usare)\n//   rif: riferimento libero restituito tale e quale (es. lead_id)\n//   invia/rispondi: a, oggetto, testo, da, nome_mittente, thread_id, in_reply_to, references, list_unsubscribe\n//   cerca: query, max\n//   leggi/modifica: id_gmail, aggiungi_etichette[], rimuovi_etichette[]\n//   thread: thread_id\nconst r = $json;\nconst BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';\nconst slot = parseInt(r.slot, 10);\nif (!(slot >= 1 && slot <= 10)) {\n  throw new Error(`Slot casella non valido: \"${r.slot}\" (deve essere un numero da 1 a 10)`);\n}\nconst azione = String(r.azione || '').toLowerCase();\n\nconst b64 = (s) => Buffer.from(String(s), 'utf8').toString('base64');\nconst b64url = (s) => b64(s).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');\nconst intestazione = (s) => (/^[\\x20-\\x7e]*$/.test(String(s)) ? String(s) : `=?UTF-8?B?${b64(s)}?=`);\nconst HEADERS = ['From', 'To', 'Subject', 'Date', 'Message-ID', 'In-Reply-To', 'References']\n  .map((h) => `metadataHeaders=${encodeURIComponent(h)}`)\n  .join('&');\n\nlet metodo = 'GET';\nlet url = '';\nlet corpo = {};\nconst extra = {};\n\nswitch (azione) {\n  case 'invia':\n  case 'rispondi': {\n    if (!r.a) throw new Error('Manca il destinatario (campo \"a\")');\n    const dom = String(r.da || '').split('@')[1] || 'mail.local';\n    const messageId = `<${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 10)}@${dom}>`;\n    const h = [];\n    if (r.da) h.push(`From: ${r.nome_mittente ? `${intestazione(r.nome_mittente)} <${r.da}>` : r.da}`);\n    h.push(`To: ${r.a}`);\n    h.push(`Subject: ${intestazione(r.oggetto || '')}`);\n    h.push(`Message-ID: ${messageId}`);\n    if (r.in_reply_to) {\n      h.push(`In-Reply-To: ${r.in_reply_to}`);\n      h.push(`References: ${r.references || r.in_reply_to}`);\n    }\n    if (r.list_unsubscribe) {\n      h.push(`List-Unsubscribe: <mailto:${r.list_unsubscribe}?subject=disiscrivimi>`);\n    }\n    h.push('MIME-Version: 1.0', 'Content-Type: text/plain; charset=\"UTF-8\"', 'Content-Transfer-Encoding: base64');\n    const testo = String(r.testo || '').replace(/\\r?\\n/g, '\\r\\n');\n    const body = b64(testo).replace(/.{76}/g, '$&\\r\\n');\n    metodo = 'POST';\n    url = `${BASE}/messages/send`;\n    corpo = { raw: b64url(`${h.join('\\r\\n')}\\r\\n\\r\\n${body}`) };\n    if (r.thread_id) corpo.threadId = String(r.thread_id);\n    extra.message_id = messageId;\n    break;\n  }\n  case 'cerca':\n    url = `${BASE}/messages?q=${encodeURIComponent(r.query || '')}&maxResults=${parseInt(r.max, 10) || 50}`;\n    break;\n  case 'leggi':\n    if (!r.id_gmail) throw new Error('Manca id_gmail');\n    url = `${BASE}/messages/${r.id_gmail}?format=metadata&${HEADERS}`;\n    break;\n  case 'thread':\n    if (!r.thread_id) throw new Error('Manca thread_id');\n    url = `${BASE}/threads/${r.thread_id}?format=metadata&${HEADERS}`;\n    break;\n  case 'modifica':\n    if (!r.id_gmail) throw new Error('Manca id_gmail');\n    metodo = 'POST';\n    url = `${BASE}/messages/${r.id_gmail}/modify`;\n    corpo = { addLabelIds: r.aggiungi_etichette || [], removeLabelIds: r.rimuovi_etichette || [] };\n    break;\n  default:\n    throw new Error(`Azione sconosciuta: \"${r.azione}\"`);\n}\n\nreturn { json: { ...r, slot, azione, metodo, url, corpo, ...extra } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "91107303-200b-4359-a2aa-9222152a8ada",
+      "name": "Prepara richiesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 10,
+        "output": "={{ $json.slot - 1 }}",
+        "options": {}
+      },
+      "id": "eb643da7-3aa3-441c-a0ce-9d3d83fa8e9a",
+      "name": "Scegli casella",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Uniforma la risposta di Gmail per chi ha chiamato questo workflow.\nconst req = $('Prepara richiesta').item.json;\nconst res = $json;\nlet body = res.body ?? {};\nif (typeof body === 'string') {\n  try {\n    body = JSON.parse(body);\n  } catch (e) {\n    body = { testo: body };\n  }\n}\nconst stato = Number(res.statusCode || 0);\nconst ok = stato >= 200 && stato < 300;\nconst out = { ok, azione: req.azione, slot: req.slot, rif: req.rif ?? null, stato_http: stato };\n\nif (!ok) {\n  out.errore =\n    body?.error?.message ||\n    res.error?.message ||\n    (typeof res.error === 'string' ? res.error : '') ||\n    `Errore HTTP ${stato || 'di rete'}`;\n  return { json: out };\n}\n\nconst intestazioni = (lista = []) =>\n  Object.fromEntries(lista.map((x) => [String(x.name).toLowerCase(), x.value]));\nconst messaggio = (m = {}) => {\n  const h = intestazioni(m.payload?.headers);\n  return {\n    id_gmail: m.id,\n    thread_id: m.threadId,\n    snippet: m.snippet || '',\n    etichette: m.labelIds || [],\n    data_ms: Number(m.internalDate || 0),\n    da: h.from || '',\n    a: h.to || '',\n    oggetto: h.subject || '',\n    message_id: h['message-id'] || '',\n    in_reply_to: h['in-reply-to'] || '',\n    references: h.references || '',\n  };\n};\n\nswitch (req.azione) {\n  case 'invia':\n  case 'rispondi':\n    Object.assign(out, {\n      id_gmail: body.id,\n      thread_id: body.threadId,\n      message_id: req.message_id,\n      a: req.a,\n      oggetto: req.oggetto,\n    });\n    break;\n  case 'cerca':\n    out.messaggi = (body.messages || []).map((m) => ({ id_gmail: m.id, thread_id: m.threadId }));\n    break;\n  case 'leggi':\n    Object.assign(out, messaggio(body));\n    break;\n  case 'thread':\n    out.thread_id = body.id;\n    out.messaggi = (body.messages || []).map(messaggio);\n    break;\n  case 'modifica':\n    out.id_gmail = body.id;\n    out.etichette = body.labelIds || [];\n    break;\n}\nreturn { json: out };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "b6c495eb-2419-494e-a6b0-74794724c196",
+      "name": "Risultato",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "33ddcd5f-f38f-4761-a10f-816799d1d4b3",
+      "name": "Casella 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -585
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "c4309836-445c-4313-a1da-a1da28625476",
+      "name": "Casella 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -455
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "7820fb20-2218-4920-a629-7df9df2d54d8",
+      "name": "Casella 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -325
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "ca2c5606-e700-4564-a5e5-109c6b62f430",
+      "name": "Casella 4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -195
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "6e76ef2c-7b49-4f7e-af9a-a2181cab3043",
+      "name": "Casella 5",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -65
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "fe8fd1e2-959b-4331-aa21-eead2e763f1a",
+      "name": "Casella 6",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        65
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "b01e4a21-b29b-4881-ab8f-2820beaa0c5f",
+      "name": "Casella 7",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        195
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "2960baac-55d0-468a-a692-7353da40e417",
+      "name": "Casella 8",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        325
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "0d2d5765-3bfd-41ee-a5b0-2129713017cc",
+      "name": "Casella 9",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        455
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.metodo }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": "={{ $json.metodo === 'POST' }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "e8e69406-dad3-439f-a18c-4d970da13100",
+      "name": "Casella 10",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        585
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    }
+  ],
+  "connections": {
+    "Chiamato dagli altri workflow": {
+      "main": [
+        [
+          {
+            "node": "Prepara richiesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara richiesta": {
+      "main": [
+        [
+          {
+            "node": "Scegli casella",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scegli casella": {
+      "main": [
+        [
+          {
+            "node": "Casella 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 6",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 7",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 8",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 9",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Casella 10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 1": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 2": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 3": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 4": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 5": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 6": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 7": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 8": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 9": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casella 10": {
+      "main": [
+        [
+          {
+            "node": "Risultato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Rome",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
