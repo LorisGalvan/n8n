@@ -4,18 +4,20 @@ Questo file serve a una nuova sessione di Claude Code per installare il Network 
 al posto di Loris, usando i segreti salvati nelle impostazioni dell'ambiente cloud.
 I segreti NON vanno mai scritti in chat, nei commit o nei log.
 
-## Variabili d'ambiente attese
-| Variabile | Contenuto |
-|---|---|
-| `SUPABASE_ACCESS_TOKEN` | Personal access token di supabase.com (Account → Access Tokens) |
-| `TELEGRAM_BOT_TOKEN` | Token del bot creato con @BotFather |
-| `CRM_ANTHROPIC_KEY` | Chiave API Anthropic `sk-ant-…` (nome diverso da ANTHROPIC_API_KEY apposta) |
-| `CRM_OPENAI_KEY` | Chiave API OpenAI `sk-…` (solo trascrizione vocali) |
-| `N8N_URL` | Indirizzo dell'istanza n8n, es. `https://nome.app.n8n.cloud` |
-| `N8N_API_KEY` | Chiave dell'API pubblica di n8n (Settings → n8n API) |
+## Segreti e credenziali
+Le chiavi sono **network secret** dell'ambiente: il proxy le aggiunge alle richieste e Claude non le vede.
+| Segreto | Sito consentito | Header |
+|---|---|---|
+| Supabase | `api.supabase.com` | `Authorization`, prefisso `Bearer`, personal access token |
+| n8n | host dell'istanza n8n di Loris | `X-N8N-API-KEY`, nessun prefisso |
+
+Telegram, Anthropic e OpenAI non passano dal proxy: il token Telegram sta nell'URL e
+`api.anthropic.com` non riceve mai segreti. Loris crea quindi direttamente in n8n tre credenziali
+con questi nomi: **Telegram CRM** (Telegram API), **Anthropic CRM** (Header Auth, `x-api-key`),
+**OpenAI CRM** (OpenAI). Claude le cerca per nome e le assegna ai nodi.
 
 ## Passi
-1. Controllare che le variabili esistano (solo presenza, mai stamparne il valore).
+1. Provare `curl https://api.supabase.com/v1/projects` e `curl $N8N/api/v1/workflows`: se rispondono 200 i segreti funzionano.
 2. Supabase (Management API `https://api.supabase.com/v1`):
    - prendere l'organizzazione di Loris, creare il progetto `network-crm` in `eu-central-1`
      con una password generata (da comunicare a Loris come da conservare, non in chiaro nei log);
@@ -25,8 +27,8 @@ I segreti NON vanno mai scritti in chat, nei commit o nei log.
      chiave service_role, `email_confirm: true`, password temporanee da far cambiare);
    - eseguire `supabase/primo_avvio.sql` e controllare che restituisca i due amministratori.
 3. n8n (API pubblica, header `X-N8N-API-KEY`):
-   - creare le credenziali `telegramApi`, `supabaseApi` (host + service_role), `openAiApi`,
-     `httpHeaderAuth` (`x-api-key` = chiave Anthropic);
+   - creare la credenziale `supabaseApi` (host + service_role del nuovo progetto, senza stamparla);
+     trovare per nome le credenziali Telegram CRM, Anthropic CRM e OpenAI CRM create da Loris;
    - importare i due JSON di `n8n/workflows/`, inserendo nei nodi gli id delle credenziali
      e l'URL Supabase nel nodo IMPOSTAZIONI;
    - attivare i due workflow.
