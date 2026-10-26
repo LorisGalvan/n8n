@@ -160,7 +160,10 @@ async function gestisci(u: any) {
   const vocale = m.voice ?? m.audio;
   if (vocale) {
     await tg("sendChatAction", { chat_id: chat, action: "typing" });
-    try { testo = await trascrivi(vocale.file_id); } catch { return scrivi(chat, "Non riesco a trascrivere il vocale. Riprova o scrivimi il messaggio."); }
+    try { testo = await trascrivi(vocale.file_id); } catch (e) {
+      console.error("trascrizione", e);
+      return scrivi(chat, `Non riesco a trascrivere il vocale (${String((e as Error).message).slice(0, 160)}). Intanto puoi scrivermi il messaggio.`);
+    }
     if (testo) await scrivi(chat, `🎙 «${testo}»`);
   }
   if (!testo || testo.startsWith("/start")) {
@@ -207,7 +210,11 @@ Deno.serve(async (req) => {
         anthropic: ANTHROPIC.startsWith("sk-ant-") ? "ok" : "non inizia con sk-ant-",
         openai: OPENAI.startsWith("sk-") ? "ok" : "non inizia con sk-",
       };
-      return Response.json({ webhook: r.ok, descrizione: r.description, bot: me?.result?.username, chiavi: forma });
+      // Prova reale delle chiavi AI (risposta del servizio, mai la chiave)
+      const oa = await fetch("https://api.openai.com/v1/models/whisper-1", { headers: { Authorization: `Bearer ${OPENAI}` } });
+      const an = await fetch("https://api.anthropic.com/v1/models", { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } });
+      const errore = async (r: Response) => r.ok ? "ok" : `${r.status} ${(await r.json().catch(() => ({})))?.error?.message ?? ""}`.slice(0, 200);
+      return Response.json({ openai_prova: await errore(oa), anthropic_prova: await errore(an), webhook: r.ok, descrizione: r.description, bot: me?.result?.username, chiavi: forma });
     }
     if (url.searchParams.has("promemoria")) {
       if (req.headers.get("x-crm-cron") !== await segretoCron()) return new Response("no", { status: 401 });
