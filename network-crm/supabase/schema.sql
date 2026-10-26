@@ -611,29 +611,51 @@ begin
 end $$;
 
 -- Da n8n: contesto per l'interprete AI, cioè solo ciò che quell'utente può vedere.
+-- Contesto per l'interprete AI: solo ciò che quell'utente può vedere.
+create or replace function private.contesto(p_org uuid, p_user uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare m membri%rowtype;
+begin
+  select * into m from membri where org_id = p_org and user_id = p_user and attivo;
+  if m.user_id is null then return jsonb_build_object('collegato', false); end if;
+  return jsonb_build_object(
+    'collegato', true, 'org_id', p_org, 'user_id', p_user, 'nome', m.nome, 'ruolo', m.ruolo,
+    'puo_scrivere', private.puo_scrivere(p_org, p_user),
+    'oggi', current_date,
+    'settori', (select coalesce(jsonb_agg(jsonb_build_object('id', s.id, 'nome', s.nome)), '[]') from settori s where s.org_id = p_org),
+    'persone', (select coalesce(jsonb_agg(jsonb_build_object('id', p.id, 'nome', p.nome, 'tipo', p.tipo, 'ruolo', p.ruolo, 'citta', p.citta, 'ultimoContatto', p.ultimo_contatto)), '[]')
+                from persone p where p.org_id = p_org and private.vede_persona(p.id, p_user)),
+    'relazioni', (select coalesce(jsonb_agg(jsonb_build_object('da', r.da, 'a', r.a, 'tipo', r.tipo)), '[]')
+                  from relazioni r where r.org_id = p_org and private.vede_relazione(r, p_user)),
+    'trattative', (select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'titolo', t.titolo, 'persona', t.persona_id, 'fase', t.fase, 'importo', t.importo, 'scadenza', t.scadenza)), '[]')
+                   from trattative t where t.org_id = p_org and private.vede_trattativa(t, p_user)),
+    'attivita', (select coalesce(jsonb_agg(jsonb_build_object('persona', a.persona_id, 'tipo', a.tipo, 'data', a.data, 'ora', a.ora, 'testo', a.testo, 'fatto', a.fatto)), '[]')
+                 from attivita a where a.org_id = p_org and a.data >= current_date - 30 and private.vede_attivita(a, p_user))
+  );
+end $$;
+
+-- Da Telegram (bot, chiave service_role): contesto di chi scrive da quella chat.
 create or replace function public.contesto_vocale(p_canale text, p_identificativo text)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
-declare cu canali_utente%rowtype; m membri%rowtype;
+declare cu canali_utente%rowtype;
 begin
   select * into cu from canali_utente where canale = p_canale and identificativo = p_identificativo;
   if cu.user_id is null then return jsonb_build_object('collegato', false); end if;
-  select * into m from membri where org_id = cu.org_id and user_id = cu.user_id and attivo;
-  if m.user_id is null then return jsonb_build_object('collegato', false); end if;
-  return jsonb_build_object(
-    'collegato', true, 'org_id', cu.org_id, 'user_id', cu.user_id, 'nome', m.nome, 'ruolo', m.ruolo,
-    'puo_scrivere', private.puo_scrivere(cu.org_id, cu.user_id),
-    'oggi', current_date,
-    'settori', (select coalesce(jsonb_agg(jsonb_build_object('id', s.id, 'nome', s.nome)), '[]') from settori s where s.org_id = cu.org_id),
-    'persone', (select coalesce(jsonb_agg(jsonb_build_object('id', p.id, 'nome', p.nome, 'tipo', p.tipo, 'ruolo', p.ruolo, 'citta', p.citta, 'ultimoContatto', p.ultimo_contatto)), '[]')
-                from persone p where p.org_id = cu.org_id and private.vede_persona(p.id, cu.user_id)),
-    'relazioni', (select coalesce(jsonb_agg(jsonb_build_object('da', r.da, 'a', r.a, 'tipo', r.tipo)), '[]')
-                  from relazioni r where r.org_id = cu.org_id and private.vede_relazione(r, cu.user_id)),
-    'trattative', (select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'titolo', t.titolo, 'persona', t.persona_id, 'fase', t.fase, 'importo', t.importo)), '[]')
-                   from trattative t where t.org_id = cu.org_id and private.vede_trattativa(t, cu.user_id)),
-    'attivita', (select coalesce(jsonb_agg(jsonb_build_object('persona', a.persona_id, 'tipo', a.tipo, 'data', a.data, 'ora', a.ora, 'testo', a.testo, 'fatto', a.fatto)), '[]')
-                 from attivita a where a.org_id = cu.org_id and a.data >= current_date - 30 and private.vede_attivita(a, cu.user_id))
-  );
+  return private.contesto(cu.org_id, cu.user_id);
 end $$;
+
+-- Dall'app: contesto dell'utente collegato.
+create or replace function public.contesto_app(p_org uuid)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select private.contesto(p_org, auth.uid())
+$$;
+
+-- Dall'app: email dei membri della propria organizzazione (auth.users non è leggibile dal browser).
+create or replace function public.membri_email(p_org uuid)
+returns table (user_id uuid, email text) language sql stable security definer set search_path = public as $$
+  select m.user_id, u.email::text from membri m join auth.users u on u.id = m.user_id
+  where m.org_id = p_org and private.is_membro(p_org)
+$$;
 
 -- Dall'editor SQL (amministratore): collega una chat Telegram a un utente.
 -- Il codice chat lo manda il bot quando l'utente gli scrive /start.
@@ -698,6 +720,10 @@ grant  execute on function public.decidi_comando_vocale(uuid, text, text, boolea
 revoke execute on function public.proponi_comando_vocale(text, text, text, jsonb, text) from public, anon, authenticated;
 grant  execute on function public.proponi_comando_vocale(text, text, text, jsonb, text) to service_role;
 revoke execute on function public.contesto_vocale(text, text) from public, anon, authenticated;
+revoke execute on function public.contesto_app(uuid) from public, anon;
+grant  execute on function public.contesto_app(uuid) to authenticated;
+revoke execute on function public.membri_email(uuid) from public, anon;
+grant  execute on function public.membri_email(uuid) to authenticated;
 grant  execute on function public.contesto_vocale(text, text) to service_role;
 revoke execute on function public.collega_telegram(text, text) from public, anon, authenticated;
 revoke execute on function public.collega_telegram_da_admin(text, text, text) from public, anon, authenticated;

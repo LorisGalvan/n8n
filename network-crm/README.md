@@ -18,7 +18,9 @@ Network CRM è un CRM condiviso in cui ogni persona è una scheda appuntata su u
 
 | Percorso | Contenuto |
 |---|---|
-| `app/index.html` | Il prototipo v1.1: si apre con un doppio clic, senza installare niente |
+| `app/index.html` | **L'app vera (v1.2)**: login, dati su Supabase, mappa, voce con Claude. Online su https://lorisgalvan.github.io/n8n/network-crm/app/ |
+| `app/prototipo.html` | Il prototipo con dati inventati, che funziona senza internet |
+| `supabase/functions/crm-bot` | Bot Telegram, promemoria, interpretazione della voce per l'app, creazione utenti |
 | `supabase/schema.sql` | Il database cloud con i permessi a livello di riga e l'esecutore dei comandi vocali |
 | `supabase/primo_avvio.sql` | Crea l'organizzazione, i settori e gli utenti (Loris ed Enrico, amministratori) |
 | `supabase/test/` | Prove dei permessi su un PostgreSQL locale (`bash supabase/test/esegui.sh`) |
@@ -111,6 +113,11 @@ con i pulsanti e manda i promemoria ogni 15 minuti dalle 7 alle 21 (pg_cron, `pr
 Il modello si cambia con i secret facoltativi `CRM_MODELLO` (predefinito `claude-opus-5-5`) e `CRM_EFFORT` (`low`).
 
 I workflow n8n in `n8n/` fanno la stessa cosa e restano come alternativa per chi preferisce n8n.
+
+## L'app online
+L'app è una pagina statica pubblicata con GitHub Pages: **Settings → Pages → Deploy from a branch**, ramo `claude/brave-bardeen-fxee3d`, cartella `/ (root)`. Indirizzo: https://lorisgalvan.github.io/n8n/network-crm/app/
+
+Il codice è pubblico, i dati no: senza login il database non restituisce niente. Ogni lettura e scrittura passa dai permessi del database. La voce dell'app usa Claude tramite la funzione `crm-bot`, con i permessi di chi è collegato.
 
 ## Prossimi passi
 

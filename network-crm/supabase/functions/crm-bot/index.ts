@@ -2,6 +2,8 @@
 //   POST /crm-bot                    aggiornamenti da Telegram (vocali, messaggi, pulsanti, /collega)
 //   GET  /crm-bot?setup=1            registra questo indirizzo come webhook del bot
 //   POST /crm-bot?promemoria=1       invia i promemoria in scadenza (lo chiama pg_cron ogni 15 minuti)
+//   POST /crm-bot?interpreta=1       dall'app: frase → azioni proposte (con il login dell'utente)
+//   POST /crm-bot?invita=1           dall'app: un amministratore aggiunge un utente
 // Segreti da impostare (Edge Functions → Secrets): TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY e, per i vocali,
 // GROQ_API_KEY (gratuito) oppure OPENAI_API_KEY.
 // CRM_CRON_SECRET è lo stesso valore che pg_cron manda nell'header x-crm-cron.
@@ -18,6 +20,9 @@ const TRASCRIZIONE = GROQ
   : { url: "https://api.openai.com/v1/audio/transcriptions", chiave: OPENAI, modello: "whisper-1", nome: "OpenAI" };
 const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SB_ANON = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Access-Control-Allow-Methods": "POST, GET, OPTIONS" };
+const json = (body: unknown, status = 200) => Response.json(body, { status, headers: CORS });
 const MODELLO = Deno.env.get("CRM_MODELLO") ?? "claude-opus-5-5";
 const EFFORT = Deno.env.get("CRM_EFFORT") ?? "low";
 
@@ -39,6 +44,44 @@ async function rpc(fn: string, body: unknown) {
   const j = t ? JSON.parse(t) : null;
   if (!r.ok) throw new Error(j?.message ?? `rpc ${fn} ${r.status}`);
   return j;
+}
+
+// Chiamate al database con il login dell'utente dell'app: valgono i suoi permessi (RLS)
+async function comeUtente(token: string, percorso: string, init: RequestInit = {}) {
+  const r = await fetch(`${SB_URL}${percorso}`, { ...init, headers: { apikey: SB_ANON, Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) } });
+  const t = await r.text();
+  const j = t ? JSON.parse(t) : null;
+  if (!r.ok) throw new Error(j?.message ?? j?.msg ?? `${r.status}`);
+  return j;
+}
+
+// deno-lint-ignore no-explicit-any
+async function interpretaApp(req: Request): Promise<any> {
+  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { testo, org } = await req.json();
+  const ctx = await comeUtente(token, "/rest/v1/rpc/contesto_app", { method: "POST", body: JSON.stringify({ p_org: org }) });
+  if (!ctx?.collegato) return { errore: "utente non autorizzato" };
+  const out = await chiediClaude(istruzioni(ctx, String(testo ?? "")));
+  if (!out) return { errore: "interpretazione non riuscita" };
+  // deno-lint-ignore no-explicit-any
+  return { azioni: (Array.isArray(out.azioni) ? out.azioni : []).filter((a: any) => a && TIPI.includes(a.tipo)), risposta: String(out.risposta ?? "") };
+}
+
+async function invita(req: Request) {
+  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const io = await comeUtente(token, "/auth/v1/user");
+  const { org, email, nome, ruolo, settori } = await req.json();
+  const mio = await comeUtente(token, `/rest/v1/membri?org_id=eq.${org}&user_id=eq.${io.id}&select=ruolo`);
+  if (mio?.[0]?.ruolo !== "admin") return { errore: "Solo un amministratore può aggiungere utenti." };
+  const password = `Crm-${crypto.randomUUID().slice(0, 8)}`;
+  const srv = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
+  const nuovo = await (await fetch(`${SB_URL}/auth/v1/admin/users`, { method: "POST", headers: srv, body: JSON.stringify({ email: String(email).toLowerCase().trim(), password, email_confirm: true }) })).json();
+  if (!nuovo?.id) return { errore: nuovo?.msg ?? nuovo?.message ?? "Utente non creato (email già registrata?)." };
+  await fetch(`${SB_URL}/rest/v1/membri`, { method: "POST", headers: srv, body: JSON.stringify({ org_id: org, user_id: nuovo.id, nome, ruolo }) });
+  if (Array.isArray(settori) && settori.length) {
+    await fetch(`${SB_URL}/rest/v1/membri_settori`, { method: "POST", headers: srv, body: JSON.stringify(settori.map((s: string) => ({ org_id: org, user_id: nuovo.id, settore_id: s }))) });
+  }
+  return { ok: true, password };
 }
 
 async function tg(metodo: string, body: unknown) {
@@ -206,7 +249,10 @@ async function promemoria() {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
+    if (url.searchParams.has("interpreta")) return json(await interpretaApp(req));
+    if (url.searchParams.has("invita")) return json(await invita(req));
     if (url.searchParams.has("setup")) {
       const self = `${SB_URL}/functions/v1/crm-bot`;
       const r = await tg("setWebhook", { url: self, secret_token: await segretoWebhook(), allowed_updates: ["message", "callback_query"] });
@@ -231,6 +277,7 @@ Deno.serve(async (req) => {
     await gestisci(await req.json());
   } catch (e) {
     console.error(e);
+    if (url.searchParams.has("interpreta") || url.searchParams.has("invita")) return json({ errore: String((e as Error).message) }, 400);
   }
   // Sempre 200 a Telegram, altrimenti ripete lo stesso messaggio
   return new Response("ok");
