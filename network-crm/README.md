@@ -95,30 +95,22 @@ Cosa garantisce il database, anche se qualcuno aggira l'app:
 - ogni modifica finisce nel `registro` con autore, valori prima e dopo, e canale (`app`, `voce`, `voce:telegram`);
 - i comandi vocali vengono eseguiti **con i permessi di chi ha parlato**: un collaboratore non può collegare o annotare una persona che non vede.
 
-### 2. Assistente vocale su Telegram (n8n)
-1. Crea un bot con @BotFather e copia il token.
-2. In n8n crea le credenziali:
+### 2. Assistente vocale su Telegram (Supabase Edge Function, senza n8n)
+Il bot è la funzione `supabase/functions/crm-bot`, che gira dentro lo stesso progetto Supabase:
+riceve vocali e messaggi, li fa trascrivere (Whisper) e interpretare (Claude), chiede conferma
+con i pulsanti e manda i promemoria ogni 15 minuti dalle 7 alle 21 (pg_cron, `promemoria_cron.sql`).
 
-| Credenziale | Tipo | Note |
-|---|---|---|
-| Telegram | **Telegram API** | Il token di BotFather |
-| Supabase | **Supabase API** | Host del progetto e chiave **service_role** (Project Settings → API). Non metterla mai nell'app |
-| OpenAI | **OpenAI API** | Serve solo per trascrivere i vocali (Whisper) |
-| Anthropic | **Header Auth** | Name `x-api-key`, Value `sk-ant-…` |
+1. Crea il bot con @BotFather (`/newbot`) e copia il token.
+2. Su Supabase apri **Edge Functions → Secrets** e aggiungi:
+   `TELEGRAM_BOT_TOKEN`, `ANTHROPIC_API_KEY` (`sk-ant-…`), `OPENAI_API_KEY` (`sk-…`).
+3. Apri una volta `https://PROGETTO.supabase.co/functions/v1/crm-bot?setup=1`: registra il webhook del bot.
+4. Scrivi `/start` al bot e collega il codice che ti dà:
+   `select collega_telegram('loris4386@gmail.com', 'IL_TUO_CODICE');`
+5. Enrico scrive `/start` e ti manda il suo codice; tu scrivi al bot `/collega enrico.berte@gmail.com CODICE`.
 
-3. Importa `n8n/workflows/01 Assistente vocale Telegram.json` e `02 Promemoria Telegram.json`, assegna le credenziali ai nodi e scrivi l'URL Supabase nel nodo **IMPOSTAZIONI** di entrambi.
-4. Attiva il workflow 01 e scrivi `/start` al bot: ti risponde con il tuo codice.
-5. **Solo per te, solo la prima volta**, collega il codice dall'editor SQL di Supabase:
-   ```sql
-   select collega_telegram('loris4386@gmail.com', 'IL_TUO_CODICE');
-   ```
-6. Enrico scrive `/start` al bot e ti manda il codice che riceve. Tu scrivi al bot:
-   `/collega enrico.berte@gmail.com CODICE_DI_ENRICO`
-   Lo stesso vale per chiunque aggiungerai in futuro.
-7. Manda un vocale. Il bot risponde con l'elenco delle modifiche e due pulsanti, **Salva** e **Annulla**.
-8. Attiva il workflow 02 per ricevere i promemoria (ogni 15 minuti, dalle 7 alle 21).
+Il modello si cambia con i secret facoltativi `CRM_MODELLO` (predefinito `claude-opus-5-5`) e `CRM_EFFORT` (`low`).
 
-Il modello Claude e il livello di ragionamento si cambiano nel nodo IMPOSTAZIONI (predefiniti: `claude-opus-5-5`, effort `low`, che risponde in pochi secondi).
+I workflow n8n in `n8n/` fanno la stessa cosa e restano come alternativa per chi preferisce n8n.
 
 ## Prossimi passi
 

@@ -36,3 +36,9 @@ con questi nomi: **Telegram CRM** (Telegram API), **Anthropic CRM** (Header Auth
    poi eseguire `select collega_telegram('loris4386@gmail.com', 'CODICE');`.
 5. Provare con un messaggio di testo e controllare l'esecuzione in n8n.
 6. Dire a Loris cosa è stato fatto, cosa non è riuscito e come collegare Enrico (`/collega`).
+
+## Stato (26 ottobre 2026)
+Fatto: progetto Supabase `wblulveycweghgbmxvqy` (Francoforte), schema, utenti Loris ed Enrico
+(admin), primo_avvio, funzione `crm-bot` al posto di n8n, secret `CRM_CRON_SECRET`, pg_cron dei promemoria,
+fuso orario Europe/Rome. Manca: i secret TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, OPENAI_API_KEY
+(li inserisce Loris), poi `?setup=1` e il collegamento Telegram.
