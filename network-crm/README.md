@@ -1,0 +1,123 @@
+# Network CRM: la lavagna del detective per i tuoi contatti
+
+Network CRM è un CRM condiviso in cui ogni persona è una scheda appuntata su una lavagna e i rapporti sono fili rossi. Oltre a rubrica, trattative, agenda e permessi, adesso si aggiorna **anche a voce**: dici cosa è successo, lui propone le modifiche e salva solo dopo la tua conferma.
+
+```
+  App web (PC e telefono)                       Telegram (vocali)
+  ── microfono o tastiera ──┐            ┌── vocale o messaggio
+                            ▼            ▼
+                 interprete (Claude) → modifiche proposte → «Salva?»
+                            │            │
+                            ▼            ▼
+              Supabase: i permessi vengono ricontrollati dal database
+                            │
+                            └──▶ n8n manda i promemoria su Telegram
+```
+
+## Cosa c'è nella cartella
+
+| Percorso | Contenuto |
+|---|---|
+| `app/index.html` | Il prototipo v1.1: si apre con un doppio clic, senza installare niente |
+| `supabase/schema.sql` | Il database cloud con i permessi a livello di riga e l'esecutore dei comandi vocali |
+| `supabase/test/` | Prove dei permessi su un PostgreSQL locale (`bash supabase/test/esegui.sh`) |
+| `n8n/workflows/` | 2 workflow da importare in n8n: assistente vocale Telegram e promemoria |
+| `n8n/src/` | Il sorgente dei workflow e i test (`npm test` dentro `n8n/`) |
+
+## Le funzioni della v1.1
+
+| Funzione | Stato |
+|---|---|
+| Mappa investigativa: schede trascinabili, fili rossi, filtri per settore, ricerca, «Collega due persone» | ✅ nel prototipo |
+| Rubrica con ricerca, settori, ultimo contatto (verde, arancione, rosso) | ✅ |
+| Scheda contatto con collegamenti, trattative e cronologia | ✅ |
+| Trattative per fase (Contatto → Proposta → Trattativa → Vinta/Persa) | ✅ |
+| Agenda: scadute, oggi, domani, prossimi giorni | ✅ |
+| Utenti e permessi ibridi: admin, responsabile, collaboratore, sola lettura | ✅ simulati nell'app, **reali** nel database |
+| Registro di tutte le modifiche, con l'indicazione di quelle fatte a voce | ✅ |
+| **Aggiornamento vocale nell'app** (tasto rosso col microfono) | ✅ |
+| **Aggiornamento vocale da Telegram**, con conferma a pulsanti | ✅ workflow n8n |
+| **Promemoria su Telegram** | ✅ workflow n8n |
+| Esportazione e importazione dei dati in JSON | ✅ |
+| WhatsApp e Alexa | 🔜 prossimo passo (vedi in fondo) |
+
+## Come funziona la voce
+
+Si può parlare in modo naturale, anche con più cose nella stessa frase:
+
+| Dici | Il CRM prepara |
+|---|---|
+| «Ho chiamato Giorgio Galli, vuole vedere il Riva sabato. Richiamalo tra 3 giorni» | Chiamata registrata (aggiorna «ultimo contatto») e promemoria fra 3 giorni |
+| «Aggiungi contatto Franco Moretti, broker, settore nautica, telefono 333 9876543» | Nuova scheda nel settore Nautica |
+| «Marco Rossi mi ha presentato Franco Moretti» | Nuova scheda e filo «ha presentato» |
+| «Collega Anna Verdi con Lucia Bianchi, sono amiche» | Filo «amicizia» |
+| «Appuntamento con Chiara Fontana venerdì alle 11» | Appuntamento in agenda |
+| «Nuova trattativa per la villa di Cernobbio con Marco Rossi da 1,2 milioni» | Trattativa da 1.200.000 € |
+| «La trattativa Vendita Riva 68 è vinta» | Trattativa spostata in «Vinta» |
+| «Il telefono di Paolo Neri è 347 1112223» | Scheda aggiornata |
+| «Chi non sento da 3 mesi?» · «Chi conosce Marco Rossi nel settore nautica?» · «Cosa devo fare domani?» | Risposta, senza modifiche |
+
+**Niente viene salvato senza conferma.** Ogni modifica compare come una casella spuntata e puoi togliere quelle sbagliate prima di premere «Conferma e salva».
+
+**Chi interpreta le frasi:**
+- Se apri il prototipo da claude.ai, le frasi le interpreta **Claude**, che capisce anche le frasi più libere e gli errori di trascrizione. Alla prima richiesta chiede il permesso.
+- Se apri il file `index.html` dal computer, usa un **interprete locale** che funziona senza internet e riconosce le frasi come quelle della tabella.
+- Con il ruolo «Sola lettura» si possono fare domande ma non modifiche, né a voce né a mano.
+
+**Il microfono:** in Chrome (PC e Android) aprendo `index.html` la dettatura parte dal tasto rosso. Dove il browser non la consente (per esempio dentro la pagina di claude.ai) tocca il microfono della tastiera del telefono dentro il riquadro e poi premi «Interpreta».
+
+## Provare il prototipo
+
+1. Apri `app/index.html` con Chrome.
+2. Cambia utente in alto a destra («Stai usando il CRM come…»). Paolo Conti, collaboratore dell'Immobiliare, non vede le schede private né quelle della Nautica, e la mappa mostra solo i suoi fili.
+3. Premi il tasto rosso e prova le frasi della tabella.
+
+I dati sono **inventati** e restano solo nel browser. Nel prototipo i permessi sono una simulazione: la riservatezza vera arriva con Supabase.
+
+## Passare alla versione cloud (multiutente)
+
+### 1. Database Supabase
+1. Crea un progetto su supabase.com (regione UE, per esempio Francoforte).
+2. **SQL Editor** → incolla `supabase/schema.sql` → **Run**.
+3. **Authentication → Users**: crea il tuo account, poi esegui il blocco «primo avvio» in fondo allo schema con la tua email.
+4. Per ogni collaboratore: crea l'utente, aggiungilo a `membri` con il suo ruolo e a `membri_settori` con i suoi settori.
+
+Cosa garantisce il database, anche se qualcuno aggira l'app:
+- l'amministratore vede tutto;
+- gli altri vedono le schede «tutti», quelle dei propri settori e quelle condivise con loro;
+- un filo compare solo se si vedono **entrambe** le persone, e i fili privati solo a chi li ha creati;
+- le trattative si vedono per settore o se si è responsabili;
+- «Sola lettura» non può scrivere;
+- ogni modifica finisce nel `registro` con autore, valori prima e dopo, e canale (`app`, `voce`, `voce:telegram`);
+- i comandi vocali vengono eseguiti **con i permessi di chi ha parlato**: un collaboratore non può collegare o annotare una persona che non vede.
+
+### 2. Assistente vocale su Telegram (n8n)
+1. Crea un bot con @BotFather e copia il token.
+2. In n8n crea le credenziali:
+
+| Credenziale | Tipo | Note |
+|---|---|---|
+| Telegram | **Telegram API** | Il token di BotFather |
+| Supabase | **Supabase API** | Host del progetto e chiave **service_role** (Project Settings → API). Non metterla mai nell'app |
+| OpenAI | **OpenAI API** | Serve solo per trascrivere i vocali (Whisper) |
+| Anthropic | **Header Auth** | Name `x-api-key`, Value `sk-ant-…` |
+
+3. Importa `n8n/workflows/01 Assistente vocale Telegram.json` e `02 Promemoria Telegram.json`, assegna le credenziali ai nodi e scrivi l'URL Supabase nel nodo **IMPOSTAZIONI** di entrambi.
+4. Attiva il workflow 01 e scrivi `/start` al bot: ti risponde con il tuo codice chat.
+5. Collega il codice al tuo utente (da SQL Editor):
+   ```sql
+   insert into canali_utente (org_id, user_id, canale, identificativo)
+   select org_id, user_id, 'telegram', 'IL_CODICE_CHAT' from membri where nome = 'Loris';
+   ```
+6. Manda un vocale. Il bot risponde con l'elenco delle modifiche e due pulsanti, **Salva** e **Annulla**.
+7. Attiva il workflow 02 per ricevere i promemoria (ogni 15 minuti, dalle 7 alle 21).
+
+Il modello Claude e il livello di ragionamento si cambiano nel nodo IMPOSTAZIONI (predefiniti: `claude-opus-5-5`, effort `low`, che risponde in pochi secondi).
+
+## Prossimi passi
+
+1. **Collegare l'app a Supabase**: login, lettura e scrittura reali, mappa sincronizzata tra PC e telefono. Il pulsante vocale chiamerà la funzione `applica_azioni_vocali`, già pronta nel database.
+2. **WhatsApp**: stesso workflow dell'assistente con il trigger WhatsApp Business al posto di Telegram. La tabella `canali_utente` prevede già il canale `whatsapp`.
+3. **Alexa**: una skill personalizzata che inoltra la frase al workflow n8n tramite webhook (canale `alexa`, già previsto).
+4. Sincronizzazione dell'agenda con Google Calendar.
+5. Backup automatici e tempi di conservazione dei dati secondo il GDPR.
