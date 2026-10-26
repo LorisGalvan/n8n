@@ -6,9 +6,10 @@
 // CRM_CRON_SECRET è lo stesso valore che pg_cron manda nell'header x-crm-cron.
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY li fornisce Supabase.
 
-const TG = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
-const ANTHROPIC = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const OPENAI = Deno.env.get("OPENAI_API_KEY") ?? "";
+// trim: un token incollato con uno spazio o un a capo in più non funzionerebbe
+const TG = (Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "").trim().replace(/^bot/i, "");
+const ANTHROPIC = (Deno.env.get("ANTHROPIC_API_KEY") ?? "").trim();
+const OPENAI = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
 const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MODELLO = Deno.env.get("CRM_MODELLO") ?? "claude-opus-5-5";
@@ -200,7 +201,13 @@ Deno.serve(async (req) => {
       const self = `${SB_URL}/functions/v1/crm-bot`;
       const r = await tg("setWebhook", { url: self, secret_token: await segretoWebhook(), allowed_updates: ["message", "callback_query"] });
       const me = await tg("getMe", {});
-      return Response.json({ webhook: r.ok, descrizione: r.description, bot: me?.result?.username });
+      // Controlli di forma, senza mai mostrare i valori
+      const forma = {
+        telegram: /^\d{6,}:[\w-]{30,}$/.test(TG) ? "ok" : `formato non valido (lunghezza ${TG.length})`,
+        anthropic: ANTHROPIC.startsWith("sk-ant-") ? "ok" : "non inizia con sk-ant-",
+        openai: OPENAI.startsWith("sk-") ? "ok" : "non inizia con sk-",
+      };
+      return Response.json({ webhook: r.ok, descrizione: r.description, bot: me?.result?.username, chiavi: forma });
     }
     if (url.searchParams.has("promemoria")) {
       if (req.headers.get("x-crm-cron") !== await segretoCron()) return new Response("no", { status: 401 });
