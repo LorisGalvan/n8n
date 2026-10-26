@@ -42,6 +42,18 @@ test('riconosce vocale, testo e pulsante', async () => {
   assert.deepEqual(await esegui(WF, 'Tipo di messaggio', { dati: { Telegram: [{ edited_message: {} }] } }), []);
 });
 
+test('/collega: comando valido, sbagliato ed esito', async () => {
+  const tg = (text) => ({ Telegram: [{ message: { chat: { id: 1 }, text } }] });
+  const ok = await esegui(WF, 'Tipo di messaggio', { dati: tg('/collega Enrico.Berte@gmail.com 777') });
+  assert.deepEqual(ok[0], { _dest: 'collega', chat_id: '1', email: 'enrico.berte@gmail.com', codice: '777' });
+  const ko = await esegui(WF, 'Tipo di messaggio', { dati: tg('/collega enrico') });
+  assert.match(ko[0].errore, /\/collega email codice/);
+  const r1 = await esegui(WF, 'Esito collegamento', { input: [{ ok: true, messaggio: 'Telegram collegato a Enrico Bertelli' }], dati: { 'Tipo di messaggio': [ok[0]] } });
+  assert.match(r1[0].testo, /Enrico Bertelli/);
+  const r2 = await esegui(WF, 'Esito collegamento', { input: [{}], dati: { 'Tipo di messaggio': [ko[0]] } });
+  assert.match(r2[0].testo, /Scrivi così/);
+});
+
 test('unisce il testo trascritto o scritto', async () => {
   const v = await esegui(WF, 'Unisci testo', { input: [{ text: ' ciao ' }], dati: { 'Tipo di messaggio': [{ _dest: 'vocale', chat_id: '42' }] } });
   assert.equal(v[0].testo_utente, 'ciao');

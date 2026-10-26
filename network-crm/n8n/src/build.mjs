@@ -113,7 +113,7 @@ function assistente() {
   w.add('Telegram', 'n8n-nodes-base.telegramTrigger', 1.2, { updates: ['message', 'callback_query'], additionalFields: {} }, [X(0), 0]);
   w.impostazioni([X(1), 0]);
   w.codice('Tipo di messaggio', 'tipo_messaggio.js', [X(2), 0]);
-  w.smista('Vocale, testo o pulsante?', ['vocale', 'testo', 'pulsante'], [X(3), 0]);
+  w.smista('Vocale, testo o pulsante?', ['vocale', 'testo', 'pulsante', 'collega'], [X(3), 0]);
 
   // vocale → testo
   w.telegram('Scarica vocale', { resource: 'file', fileId: '={{ $json.file_id }}', download: true, additionalFields: {} }, [X(4), -200]);
@@ -191,6 +191,11 @@ function assistente() {
     [X(5), 250]);
   w.codice('Esito', 'esito.js', [X(6), 250]);
 
+  // /collega email codice (solo amministratori già collegati)
+  w.rpc('Collega utente (Supabase)', 'collega_telegram_da_admin',
+    "{ p_chat_admin: $json.chat_id, p_email: $json.email || '', p_chat_id: $json.codice || '' }", [X(5), 450]);
+  w.codice('Esito collegamento', 'esito_collega.js', [X(6), 450]);
+
   w.catena('Telegram', 'IMPOSTAZIONI', 'Tipo di messaggio', 'Vocale, testo o pulsante?');
   w.link('Vocale, testo o pulsante?', 'Scarica vocale', 0);
   w.link('Vocale, testo o pulsante?', 'Unisci testo', 1);
@@ -203,6 +208,8 @@ function assistente() {
   w.link('Da confermare?', 'Rispondi', 1);
   w.link('Salva proposta (Supabase)', 'Chiedi conferma');
   w.catena('Chiudi pulsante', 'Conferma o annulla (Supabase)', 'Esito', 'Rispondi');
+  w.link('Vocale, testo o pulsante?', 'Collega utente (Supabase)', 3);
+  w.catena('Collega utente (Supabase)', 'Esito collegamento', 'Rispondi');
   return w;
 }
 

@@ -46,8 +46,11 @@ select 'registro', via, tabella, operazione, count(*) from registro group by 1,2
 -- primo avvio con gli utenti reali e collegamento Telegram
 reset role;
 delete from organizzazioni;
-insert into auth.users values ('00000000-0000-0000-0000-0000000000a1','info@lorisgalvan.com'),('00000000-0000-0000-0000-0000000000a2','Enrico.Berte@gmail.com');
+insert into auth.users values ('00000000-0000-0000-0000-0000000000a1','loris4386@gmail.com'),('00000000-0000-0000-0000-0000000000a2','Enrico.Berte@gmail.com');
 \ir ../primo_avvio.sql
 \ir ../primo_avvio.sql
-select 'telegram', public.collega_telegram('ENRICO.berte@gmail.com', ' 777 ');
+select 'telegram loris', public.collega_telegram('loris4386@gmail.com', '111');
+select 'collega da sconosciuto', public.collega_telegram_da_admin('999', 'enrico.berte@gmail.com', '777')->>'ok';
+select 'collega email errata', public.collega_telegram_da_admin('111', 'nessuno@x.it', '777')->>'errore';
+select 'collega da admin', public.collega_telegram_da_admin('111', 'ENRICO.berte@gmail.com', ' 777 ')->>'messaggio';
 select 'enrico contesto', public.contesto_vocale('telegram','777')->>'nome';

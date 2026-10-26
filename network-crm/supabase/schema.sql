@@ -650,6 +650,24 @@ begin
   return 'Telegram collegato a ' || m.nome;
 end $$;
 
+-- Da n8n: un amministratore già collegato collega un altro utente scrivendo
+-- al bot "/collega email codice".
+create or replace function public.collega_telegram_da_admin(p_chat_admin text, p_email text, p_chat_id text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare cu canali_utente%rowtype; v_nome text;
+begin
+  select * into cu from canali_utente where canale = 'telegram' and identificativo = p_chat_admin;
+  if cu.user_id is null or not private.is_admin(cu.org_id, cu.user_id) then
+    return jsonb_build_object('ok', false, 'errore', 'Solo un amministratore collegato può usare /collega.');
+  end if;
+  if not exists (select 1 from membri mb join auth.users u on u.id = mb.user_id
+                 where mb.org_id = cu.org_id and mb.attivo and lower(u.email) = lower(trim(p_email))) then
+    return jsonb_build_object('ok', false, 'errore', 'Nessun utente del CRM con email ' || p_email || '.');
+  end if;
+  v_nome := public.collega_telegram(p_email, p_chat_id);
+  return jsonb_build_object('ok', true, 'messaggio', v_nome);
+end $$;
+
 -- Da n8n: promemoria da inviare (scadono oggi o sono scaduti, non ancora notificati).
 create or replace function public.promemoria_da_inviare()
 returns table (attivita_id uuid, user_id uuid, canale text, identificativo text, testo text, persona text, telefono text, data date, ora time)
@@ -682,6 +700,8 @@ grant  execute on function public.proponi_comando_vocale(text, text, text, jsonb
 revoke execute on function public.contesto_vocale(text, text) from public, anon, authenticated;
 grant  execute on function public.contesto_vocale(text, text) to service_role;
 revoke execute on function public.collega_telegram(text, text) from public, anon, authenticated;
+revoke execute on function public.collega_telegram_da_admin(text, text, text) from public, anon, authenticated;
+grant  execute on function public.collega_telegram_da_admin(text, text, text) to service_role;
 revoke execute on function public.promemoria_da_inviare() from public, anon, authenticated;
 grant  execute on function public.promemoria_da_inviare() to service_role;
 revoke execute on function public.segna_promemoria_inviato(uuid) from public, anon, authenticated;

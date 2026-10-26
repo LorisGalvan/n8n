@@ -263,16 +263,15 @@ const addDays = (n, from) => { const d = from ? new Date(from+"T12:00:00") : new
 const TODAY = () => iso(new Date());
 const uid = p => p + "_" + Math.random().toString(36).slice(2,9);
 
-/* utenti reali del CRM: Enrico vede Nautica, Immobiliare e Fornitori, non il settore Personale */
+/* utenti reali del CRM: due amministratori */
 const UTENTI = [
-  {id:"u_admin", nome:"Loris (tu)", email:"info@lorisgalvan.com", ruolo:"admin", settori:["naut","imm","forn","pers"]},
-  {id:"u_loris2", nome:"Loris (seconda email)", email:"loris4386@gmail.com", ruolo:"admin", settori:["naut","imm","forn","pers"]},
-  {id:"u_enrico", nome:"Enrico Berté", email:"enrico.berte@gmail.com", ruolo:"collaboratore", settori:["naut","imm","forn"]}
+  {id:"u_admin", nome:"Loris (tu)", email:"loris4386@gmail.com", ruolo:"admin", settori:["naut","imm","forn","pers"]},
+  {id:"u_enrico", nome:"Enrico Bertelli", email:"enrico.berte@gmail.com", ruolo:"admin", settori:["naut","imm","forn","pers"]}
 ];
 function seed(){
   const T = TODAY();
   return {
-    versione: 2,
+    versione: 3,
     settori: [
       {id:"naut", nome:"Nautica", colore:"#1f5f99"},
       {id:"imm", nome:"Immobiliare", colore:"#7a4a9e"},
@@ -327,17 +326,19 @@ function load(){
   try { const raw = localStorage.getItem(KEY); if (raw) { S = JSON.parse(raw); migra(); return; } } catch(e){}
   S = seed();
 }
-/* v1 → v2: gli utenti dimostrativi diventano gli utenti reali, senza perdere i dati */
+/* v1/v2 → v3: gli utenti diventano quelli reali (Loris ed Enrico, entrambi amministratori), senza perdere i dati */
 function migra(){
-  if ((S.versione||1) >= 2) return;
-  const m = {u_giulia:"u_enrico", u_paolo:"u_enrico", u_sara:"u_admin"}, f = id => m[id] || id;
+  if ((S.versione||1) >= 3) return;
+  const m = {u_giulia:"u_enrico", u_paolo:"u_enrico", u_sara:"u_admin", u_loris2:"u_admin"}, f = id => m[id] || id;
   S.persone.forEach(p => { p.creatoDa = f(p.creatoDa); p.condivisiCon = [...new Set((p.condivisiCon||[]).map(f))].filter(x => x!=="u_admin"); });
   S.relazioni.forEach(r => r.creatoDa = f(r.creatoDa));
   S.trattative.forEach(t => t.responsabile = f(t.responsabile));
   S.attivita.forEach(a => a.assegnatoA = f(a.assegnatoA));
   S.registro.forEach(l => l.chi = f(l.chi));
-  S.utenti = UTENTI.map(u => ({...u, settori:[...u.settori]}));
-  S.versione = 2; save();
+  const altri = (S.utenti||[]).filter(u => !["u_admin","u_enrico","u_loris2","u_giulia","u_paolo","u_sara"].includes(u.id));
+  const tutti = S.settori.map(x => x.id);
+  S.utenti = [...UTENTI.map(u => ({...u, settori: u.ruolo === "admin" ? [...tutti] : [...u.settori]})), ...altri];
+  S.versione = 3; save();
 }
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
 let ME = "u_admin";

@@ -14,7 +14,8 @@ if (ingresso.saluto || !ingresso.testo_utente) {
     '• «Ho chiamato Marco Rossi, richiamalo tra 15 giorni»\n' +
     '• «Collega Anna Verdi con Lucia Bianchi, sono amiche»\n' +
     '• «Chi non sento da tre mesi?»\n' +
-    'Prima di salvare ti chiedo sempre conferma.' } }];
+    'Prima di salvare ti chiedo sempre conferma.' +
+    (ctx.ruolo === 'admin' ? '\n\nPer collegare un\'altra persona: chiedile di scrivermi /start e poi scrivi /collega email codice' : '') } }];
 }
 
 const dati = {
