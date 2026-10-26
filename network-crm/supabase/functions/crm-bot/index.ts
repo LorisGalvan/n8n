@@ -112,7 +112,7 @@ function riepilogo(azioni: any[], ctx: any) {
       case "registra_contatto": return `📞 Contatto con ${nome(a.persona)}: ${a.testo}`;
       case "crea_attivita": return `⏰ ${a.testo}${a.persona ? ` (${nome(a.persona)})` : ""} · ${data(a.data)}${a.ora ? ` alle ${a.ora}` : ""}`;
       case "aggiungi_nota": return `📝 Nota su ${nome(a.persona)}: ${a.testo}`;
-      case "crea_trattativa": return `💼 Nuova trattativa: ${a.titolo}${a.persona ? ` (${nome(a.persona)})` : ""} · ${eur(a.importo)}`;
+      case "crea_trattativa": return `💼 Nuova trattativa: ${a.titolo}${a.persona ? ` (${nome(a.persona)})` : ""} · ${eur(a.importo)}${a.scadenza ? ` · entro ${data(a.scadenza)}` : ""}`;
       case "aggiorna_trattativa": return `💼 ${trattative[a.trattativa] ?? a.trattativa}${a.fase ? ` → ${a.fase}` : ""}${a.importo ? ` · ${eur(a.importo)}` : ""}`;
     }
     return "";
