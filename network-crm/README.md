@@ -102,7 +102,7 @@ con i pulsanti e manda i promemoria ogni 15 minuti dalle 7 alle 21 (pg_cron, `pr
 
 1. Crea il bot con @BotFather (`/newbot`) e copia il token.
 2. Su Supabase apri **Edge Functions → Secrets** e aggiungi:
-   `TELEGRAM_BOT_TOKEN`, `ANTHROPIC_API_KEY` (`sk-ant-…`), `OPENAI_API_KEY` (`sk-…`).
+   `TELEGRAM_BOT_TOKEN`, `ANTHROPIC_API_KEY` (`sk-ant-…`) e, per i vocali, `GROQ_API_KEY` (`gsk_…`, gratuito su console.groq.com) oppure `OPENAI_API_KEY` (`sk-…`).
 3. Apri una volta `https://PROGETTO.supabase.co/functions/v1/crm-bot?setup=1`: registra il webhook del bot.
 4. Scrivi `/start` al bot e collega il codice che ti dà:
    `select collega_telegram('loris4386@gmail.com', 'IL_TUO_CODICE');`

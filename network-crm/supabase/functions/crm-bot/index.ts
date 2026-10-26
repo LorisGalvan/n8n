@@ -2,7 +2,8 @@
 //   POST /crm-bot                    aggiornamenti da Telegram (vocali, messaggi, pulsanti, /collega)
 //   GET  /crm-bot?setup=1            registra questo indirizzo come webhook del bot
 //   POST /crm-bot?promemoria=1       invia i promemoria in scadenza (lo chiama pg_cron ogni 15 minuti)
-// Segreti da impostare (Edge Functions → Secrets): TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, OPENAI_API_KEY.
+// Segreti da impostare (Edge Functions → Secrets): TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY e, per i vocali,
+// GROQ_API_KEY (gratuito) oppure OPENAI_API_KEY.
 // CRM_CRON_SECRET è lo stesso valore che pg_cron manda nell'header x-crm-cron.
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY li fornisce Supabase.
 
@@ -10,6 +11,11 @@
 const TG = (Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "").trim().replace(/^bot/i, "");
 const ANTHROPIC = (Deno.env.get("ANTHROPIC_API_KEY") ?? "").trim();
 const OPENAI = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
+// Se c'è la chiave Groq la trascrizione usa Groq (piano gratuito), altrimenti OpenAI
+const GROQ = (Deno.env.get("GROQ_API_KEY") ?? "").trim();
+const TRASCRIZIONE = GROQ
+  ? { url: "https://api.groq.com/openai/v1/audio/transcriptions", chiave: GROQ, modello: "whisper-large-v3-turbo", nome: "Groq" }
+  : { url: "https://api.openai.com/v1/audio/transcriptions", chiave: OPENAI, modello: "whisper-1", nome: "OpenAI" };
 const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MODELLO = Deno.env.get("CRM_MODELLO") ?? "claude-opus-5-5";
@@ -48,9 +54,9 @@ async function trascrivi(file_id: string) {
   const audio = await (await fetch(`https://api.telegram.org/file/bot${TG}/${f.result.file_path}`)).blob();
   const form = new FormData();
   form.append("file", audio, "vocale.ogg");
-  form.append("model", "whisper-1");
+  form.append("model", TRASCRIZIONE.modello);
   form.append("language", "it");
-  const r = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${OPENAI}` }, body: form });
+  const r = await fetch(TRASCRIZIONE.url, { method: "POST", headers: { Authorization: `Bearer ${TRASCRIZIONE.chiave}` }, body: form });
   const j = await r.json();
   if (!r.ok) throw new Error(j?.error?.message ?? "trascrizione non riuscita");
   return String(j.text ?? "").trim();
@@ -208,13 +214,13 @@ Deno.serve(async (req) => {
       const forma = {
         telegram: /^\d{6,}:[\w-]{30,}$/.test(TG) ? "ok" : `formato non valido (lunghezza ${TG.length})`,
         anthropic: ANTHROPIC.startsWith("sk-ant-") ? "ok" : "non inizia con sk-ant-",
-        openai: OPENAI.startsWith("sk-") ? "ok" : "non inizia con sk-",
+        groq: GROQ ? (GROQ.startsWith("gsk_") ? "ok" : "non inizia con gsk_") : "assente",
       };
       // Prova reale delle chiavi AI (risposta del servizio, mai la chiave)
-      const oa = await fetch("https://api.openai.com/v1/models/whisper-1", { headers: { Authorization: `Bearer ${OPENAI}` } });
+      const oa = await fetch(TRASCRIZIONE.url.replace("audio/transcriptions", "models"), { headers: { Authorization: `Bearer ${TRASCRIZIONE.chiave}` } });
       const an = await fetch("https://api.anthropic.com/v1/models", { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } });
       const errore = async (r: Response) => r.ok ? "ok" : `${r.status} ${(await r.json().catch(() => ({})))?.error?.message ?? ""}`.slice(0, 200);
-      return Response.json({ openai_prova: await errore(oa), anthropic_prova: await errore(an), webhook: r.ok, descrizione: r.description, bot: me?.result?.username, chiavi: forma });
+      return Response.json({ trascrizione: TRASCRIZIONE.nome, trascrizione_prova: await errore(oa), anthropic_prova: await errore(an), webhook: r.ok, descrizione: r.description, bot: me?.result?.username, chiavi: forma });
     }
     if (url.searchParams.has("promemoria")) {
       if (req.headers.get("x-crm-cron") !== await segretoCron()) return new Response("no", { status: 401 });
