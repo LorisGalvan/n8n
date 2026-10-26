@@ -635,6 +635,21 @@ begin
   );
 end $$;
 
+-- Dall'editor SQL (amministratore): collega una chat Telegram a un utente.
+-- Il codice chat lo manda il bot quando l'utente gli scrive /start.
+create or replace function public.collega_telegram(p_email text, p_chat_id text)
+returns text language plpgsql security definer set search_path = public as $$
+declare m membri%rowtype;
+begin
+  select mb.* into m from membri mb join auth.users u on u.id = mb.user_id
+  where lower(u.email) = lower(trim(p_email)) and mb.attivo limit 1;
+  if m.user_id is null then raise exception 'Nessun membro attivo con email %', p_email; end if;
+  insert into canali_utente (org_id, user_id, canale, identificativo)
+  values (m.org_id, m.user_id, 'telegram', trim(p_chat_id))
+  on conflict (canale, identificativo) do update set org_id = excluded.org_id, user_id = excluded.user_id;
+  return 'Telegram collegato a ' || m.nome;
+end $$;
+
 -- Da n8n: promemoria da inviare (scadono oggi o sono scaduti, non ancora notificati).
 create or replace function public.promemoria_da_inviare()
 returns table (attivita_id uuid, user_id uuid, canale text, identificativo text, testo text, persona text, telefono text, data date, ora time)
@@ -666,18 +681,11 @@ revoke execute on function public.proponi_comando_vocale(text, text, text, jsonb
 grant  execute on function public.proponi_comando_vocale(text, text, text, jsonb, text) to service_role;
 revoke execute on function public.contesto_vocale(text, text) from public, anon, authenticated;
 grant  execute on function public.contesto_vocale(text, text) to service_role;
+revoke execute on function public.collega_telegram(text, text) from public, anon, authenticated;
 revoke execute on function public.promemoria_da_inviare() from public, anon, authenticated;
 grant  execute on function public.promemoria_da_inviare() to service_role;
 revoke execute on function public.segna_promemoria_inviato(uuid) from public, anon, authenticated;
 grant  execute on function public.segna_promemoria_inviato(uuid) to service_role;
 
 -- ============================ primo avvio ===============================
--- Dopo aver creato il tuo account da Authentication → Users, sostituisci
--- l'email qui sotto ed esegui questo blocco una volta sola.
---
--- with o as (insert into organizzazioni (nome) values ('La mia rete') returning id),
---      u as (select id from auth.users where email = 'tua@email.it')
--- insert into membri (org_id, user_id, nome, ruolo) select o.id, u.id, 'Loris', 'admin' from o, u;
--- insert into settori (org_id, nome, colore)
---   select id, s.nome, s.colore from organizzazioni,
---   (values ('Nautica','#1f5f99'),('Immobiliare','#7a4a9e'),('Fornitori','#2f7d5b'),('Personale','#a06a12')) s(nome, colore);
+-- Dopo questo file esegui primo_avvio.sql (organizzazione, utenti, settori).

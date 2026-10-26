@@ -20,6 +20,7 @@ Network CRM è un CRM condiviso in cui ogni persona è una scheda appuntata su u
 |---|---|
 | `app/index.html` | Il prototipo v1.1: si apre con un doppio clic, senza installare niente |
 | `supabase/schema.sql` | Il database cloud con i permessi a livello di riga e l'esecutore dei comandi vocali |
+| `supabase/primo_avvio.sql` | Crea l'organizzazione, i settori e gli utenti (tu con due email, Enrico) |
 | `supabase/test/` | Prove dei permessi su un PostgreSQL locale (`bash supabase/test/esegui.sh`) |
 | `n8n/workflows/` | 2 workflow da importare in n8n: assistente vocale Telegram e promemoria |
 | `n8n/src/` | Il sorgente dei workflow e i test (`npm test` dentro `n8n/`) |
@@ -34,6 +35,8 @@ Network CRM è un CRM condiviso in cui ogni persona è una scheda appuntata su u
 | Trattative per fase (Contatto → Proposta → Trattativa → Vinta/Persa) | ✅ |
 | Agenda: scadute, oggi, domani, prossimi giorni | ✅ |
 | Utenti e permessi ibridi: admin, responsabile, collaboratore, sola lettura | ✅ simulati nell'app, **reali** nel database |
+| Aggiunta, ridenominazione, colore ed eliminazione dei settori | ✅ scheda Permessi (solo amministratore) |
+| Tema chiaro, scuro o automatico | ✅ in alto a destra |
 | Registro di tutte le modifiche, con l'indicazione di quelle fatte a voce | ✅ |
 | **Aggiornamento vocale nell'app** (tasto rosso col microfono) | ✅ |
 | **Aggiornamento vocale da Telegram**, con conferma a pulsanti | ✅ workflow n8n |
@@ -69,7 +72,7 @@ Si può parlare in modo naturale, anche con più cose nella stessa frase:
 ## Provare il prototipo
 
 1. Apri `app/index.html` con Chrome.
-2. Cambia utente in alto a destra («Stai usando il CRM come…»). Paolo Conti, collaboratore dell'Immobiliare, non vede le schede private né quelle della Nautica, e la mappa mostra solo i suoi fili.
+2. Cambia utente in alto a destra («Stai usando il CRM come…»). Enrico, collaboratore su Nautica, Immobiliare e Fornitori, non vede le schede private né il settore Personale, e la mappa mostra solo i suoi fili.
 3. Premi il tasto rosso e prova le frasi della tabella.
 
 I dati sono **inventati** e restano solo nel browser. Nel prototipo i permessi sono una simulazione: la riservatezza vera arriva con Supabase.
@@ -79,8 +82,9 @@ I dati sono **inventati** e restano solo nel browser. Nel prototipo i permessi s
 ### 1. Database Supabase
 1. Crea un progetto su supabase.com (regione UE, per esempio Francoforte).
 2. **SQL Editor** → incolla `supabase/schema.sql` → **Run**.
-3. **Authentication → Users**: crea il tuo account, poi esegui il blocco «primo avvio» in fondo allo schema con la tua email.
-4. Per ogni collaboratore: crea l'utente, aggiungilo a `membri` con il suo ruolo e a `membri_settori` con i suoi settori.
+3. **Authentication → Users → Invite user**: invita `info@lorisgalvan.com`, `loris4386@gmail.com` ed `enrico.berte@gmail.com`. Ognuno riceve una mail per scegliere la password.
+4. **SQL Editor** → incolla `supabase/primo_avvio.sql` → **Run**. Crea i 4 settori e i ruoli: le tue due email come amministratore, Enrico come collaboratore su Nautica, Immobiliare e Fornitori. Si può rieseguire senza creare doppioni, per esempio se Enrico accetta l'invito più tardi.
+5. Per un settore nuovo, o per un collaboratore in più, in fondo a `primo_avvio.sql` ci sono le righe pronte da copiare.
 
 Cosa garantisce il database, anche se qualcuno aggira l'app:
 - l'amministratore vede tutto;
@@ -103,11 +107,11 @@ Cosa garantisce il database, anche se qualcuno aggira l'app:
 | Anthropic | **Header Auth** | Name `x-api-key`, Value `sk-ant-…` |
 
 3. Importa `n8n/workflows/01 Assistente vocale Telegram.json` e `02 Promemoria Telegram.json`, assegna le credenziali ai nodi e scrivi l'URL Supabase nel nodo **IMPOSTAZIONI** di entrambi.
-4. Attiva il workflow 01 e scrivi `/start` al bot: ti risponde con il tuo codice chat.
-5. Collega il codice al tuo utente (da SQL Editor):
+4. Attiva il workflow 01. Tu ed Enrico scrivete `/start` al bot: risponde a ciascuno con il suo codice.
+5. Collega i codici dall'editor SQL di Supabase, una riga per persona:
    ```sql
-   insert into canali_utente (org_id, user_id, canale, identificativo)
-   select org_id, user_id, 'telegram', 'IL_CODICE_CHAT' from membri where nome = 'Loris';
+   select collega_telegram('info@lorisgalvan.com', 'CODICE_DI_LORIS');
+   select collega_telegram('enrico.berte@gmail.com', 'CODICE_DI_ENRICO');
    ```
 6. Manda un vocale. Il bot risponde con l'elenco delle modifiche e due pulsanti, **Salva** e **Annulla**.
 7. Attiva il workflow 02 per ricevere i promemoria (ogni 15 minuti, dalle 7 alle 21).

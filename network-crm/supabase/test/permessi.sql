@@ -43,3 +43,11 @@ select 'n8n conferma', public.decidi_comando_vocale(:'id','telegram','555',true)
 select 'n8n ripete', public.decidi_comando_vocale(:'id','telegram','555',true)->>'stato';
 select 'promemoria', count(*) from public.promemoria_da_inviare();
 select 'registro', via, tabella, operazione, count(*) from registro group by 1,2,3,4 order by 2,3,4;
+-- primo avvio con gli utenti reali e collegamento Telegram
+reset role;
+delete from organizzazioni;
+insert into auth.users values ('00000000-0000-0000-0000-0000000000a1','info@lorisgalvan.com'),('00000000-0000-0000-0000-0000000000a2','Enrico.Berte@gmail.com');
+\ir ../primo_avvio.sql
+\ir ../primo_avvio.sql
+select 'telegram', public.collega_telegram('ENRICO.berte@gmail.com', ' 777 ');
+select 'enrico contesto', public.contesto_vocale('telegram','777')->>'nome';

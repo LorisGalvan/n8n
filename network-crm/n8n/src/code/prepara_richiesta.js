@@ -6,7 +6,7 @@ const chat_id = ingresso.chat_id;
 
 if (!ctx.collegato) {
   return [{ json: { _dest: 'rispondi', chat_id, testo:
-    `Questo account Telegram non è collegato al CRM.\nChiedi all'amministratore di registrare questo codice: ${chat_id}` } }];
+    `Questo account Telegram non è ancora collegato al CRM.\nIl tuo codice è: ${chat_id}\nMandalo all'amministratore, che lo collega alla tua email.` } }];
 }
 if (ingresso.saluto || !ingresso.testo_utente) {
   return [{ json: { _dest: 'rispondi', chat_id, testo:
