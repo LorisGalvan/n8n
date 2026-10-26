@@ -37,8 +37,11 @@ con questi nomi: **Telegram CRM** (Telegram API), **Anthropic CRM** (Header Auth
 5. Provare con un messaggio di testo e controllare l'esecuzione in n8n.
 6. Dire a Loris cosa è stato fatto, cosa non è riuscito e come collegare Enrico (`/collega`).
 
-## Stato (26 ottobre 2026)
-Fatto: progetto Supabase `wblulveycweghgbmxvqy` (Francoforte), schema, utenti Loris ed Enrico
-(admin), primo_avvio, funzione `crm-bot` al posto di n8n, secret `CRM_CRON_SECRET`, pg_cron dei promemoria,
-fuso orario Europe/Rome. Manca: i secret TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, OPENAI_API_KEY
-(li inserisce Loris), poi `?setup=1` e il collegamento Telegram.
+## Stato (26 ottobre 2026): installazione completata
+- Supabase `wblulveycweghgbmxvqy` (Francoforte, ora italiana): schema, Loris (loris4386@gmail.com) ed
+  Enrico Bertelli (enrico.berte@gmail.com) amministratori, pg_cron dei promemoria.
+- Funzione `crm-bot`: bot @NAVISELITEBOT (trascrizione Groq, Claude), endpoint per l'app.
+  Secret: TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, CRM_CRON_SECRET.
+- Telegram di Loris collegato. Enrico da collegare con `/collega`.
+- App online con GitHub Pages dal branch `claude/brave-bardeen-fxee3d`: https://lorisgalvan.github.io/n8n/
+- n8n non è usato: i workflow in `n8n/` restano come alternativa.
