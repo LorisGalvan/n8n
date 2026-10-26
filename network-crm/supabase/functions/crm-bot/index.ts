@@ -139,7 +139,8 @@ async function gestisci(u: any) {
       if (r.stato !== "confermato" || !Array.isArray(r.esito)) return scrivi(chat, "Comando già gestito.");
       // deno-lint-ignore no-explicit-any
       const ko = r.esito.filter((e: any) => !e.ok);
-      return scrivi(chat, `✅ Salvate ${r.esito.length - ko.length} modifiche.${ko.length ? `\n⚠️ ${ko.length} non salvate: ${ko.map((e: { errore: string }) => e.errore).join("; ")}.` : ""}`);
+      const n = r.esito.length - ko.length;
+      return scrivi(chat, `✅ ${n === 1 ? "Salvata 1 modifica" : `Salvate ${n} modifiche`}.${ko.length ? `\n⚠️ ${ko.length} non salvate: ${ko.map((e: { errore: string }) => e.errore).join("; ")}.` : ""}`);
     } catch {
       return scrivi(chat, "Questo comando non è più valido.");
     }
